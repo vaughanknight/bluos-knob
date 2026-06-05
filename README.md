@@ -21,11 +21,11 @@ turns it into a proper hi-fi control surface: volume nudges, mute, source
 shortcuts, replayable hardware captures, and guardrails that keep the party from
 turning into an accidental speaker stress test.
 
-This is not "some script that sends volume commands and hopes for the best."
-It is a startup-grade little stereo robot: it learns the real HID reports from
-the knob, replays them deterministically, talks to BluOS over its local API, and
-only changes the amplifier through harnessed commands with explicit safety
-limits.
+Okay, technically it is "some script that sends volume commands" — but it is
+some script that has had some thought put into it. It learns the real HID
+reports from the knob, replays them deterministically, talks to BluOS over its
+local API, and only changes the amplifier through harnessed commands with
+explicit safety limits.
 
 ## What works today
 
