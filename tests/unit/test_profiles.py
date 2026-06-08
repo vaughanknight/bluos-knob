@@ -1,5 +1,5 @@
-from exotic_knob.configuration.profiles import AnticaterProfile, default_anticater_profile
-from exotic_knob.device_input.contracts import DeviceIdentity, HidDeviceInfo
+from bluos_knob.configuration.profiles import AnticaterProfile, default_anticater_profile
+from bluos_knob.device_input.contracts import DeviceIdentity, HidDeviceInfo
 
 
 def test_given_product_hint_when_matching_default_profile_then_candidate_is_selected():

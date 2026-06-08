@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from exotic_knob.device_input.contracts import CaptureFixtureRow, HidDeviceInfo, RawHidReport
+from bluos_knob.device_input.contracts import CaptureFixtureRow, HidDeviceInfo, RawHidReport
 
 
 class FakeHidExhausted(Exception):

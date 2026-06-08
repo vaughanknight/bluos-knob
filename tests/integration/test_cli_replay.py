@@ -1,9 +1,9 @@
 import io
 import json
 
-from exotic_knob.cli.main import EXIT_OK, main
-from exotic_knob.device_input.contracts import DeviceIdentity, HidDeviceInfo, RawHidReport
-from exotic_knob.device_input.fake_hid import FakeHidPlatform
+from bluos_knob.cli.main import EXIT_OK, main
+from bluos_knob.device_input.contracts import DeviceIdentity, HidDeviceInfo, RawHidReport
+from bluos_knob.device_input.fake_hid import FakeHidPlatform
 
 
 def test_given_capture_fixture_when_replayed_then_normalized_events_match_capture(tmp_path):

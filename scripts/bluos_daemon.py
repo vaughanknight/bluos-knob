@@ -14,9 +14,9 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from exotic_knob.device_input.contracts import NormalizedAction, NormalizedKnobEvent
-from exotic_knob.device_input.normalizer import normalize_report
-from exotic_knob.platform_adapter.hidapi_reader import HidapiPlatform, PlatformHidError
+from bluos_knob.device_input.contracts import NormalizedAction, NormalizedKnobEvent
+from bluos_knob.device_input.normalizer import normalize_report
+from bluos_knob.platform_adapter.hidapi_reader import HidapiPlatform, PlatformHidError
 from scripts.bluos_mute import send_mute
 from scripts.bluos_readonly import fetch_endpoint, summarize
 from scripts.bluos_source import (
@@ -263,7 +263,7 @@ def _log(payload: dict[str, Any]) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run the live Exotic Knob daemon loop.")
+    parser = argparse.ArgumentParser(description="Run the live BluOS Knob daemon loop.")
     parser.add_argument("--anticater-path", required=True)
     parser.add_argument("--bluos-host", required=True)
     parser.add_argument("--bluos-port", type=int, default=11000)

@@ -3,7 +3,7 @@
 **Source**: <https://bluos.io/wp-content/uploads/2025/06/BluOS-Custom-Integration-API_v1.7.pdf>  
 **Extracted**: 2026-06-05  
 **Purpose**: Capture the BluOS/NAD integration facts that matter for the next
-Exotic Knob phase: safely mapping Anticater knob events to NAD M33 volume
+BluOS Knob phase: safely mapping Anticater knob events to NAD M33 volume
 control.
 
 The PDF itself was downloaded to session scratch for text extraction and is not
@@ -11,7 +11,7 @@ committed to the repository.
 
 ## Executive Summary
 
-BluOS exposes a simple local HTTP/XML custom-integration API. For Exotic Knob,
+BluOS exposes a simple local HTTP/XML custom-integration API. For BluOS Knob,
 the next implementation should use the local player endpoint on port `11000`,
 query `/Status` or `/SyncStatus` for current volume/mute/group state, and issue
 bounded relative dB changes through `/Volume?db=<delta>`. Volume control should
@@ -23,7 +23,7 @@ Key implications:
 1. **Use dB deltas for knob turns**: `/Volume?db=2` and `/Volume?db=-2` are the
    natural mapping for rotate up/down.
 2. **Preserve safety clamps in our policy**: BluOS constrains commands to the
-   configured player volume range, but Exotic Knob should still enforce its own
+   configured player volume range, but BluOS Knob should still enforce its own
    max-volume and step policy before sending requests.
 3. **Poll carefully**: status supports long polling; non-long-poll clients should
    avoid frequent polling.
@@ -114,10 +114,10 @@ Important semantics:
 
 The document states command variants are constrained to values within the
 configured available volume range, typically `-80..0` dB, and that range is
-adjustable in the BluOS Controller app (lines 742-744). Exotic Knob should still
+adjustable in the BluOS Controller app (lines 742-744). BluOS Knob should still
 apply its own safety policy before sending a command.
 
-### Recommended Exotic Knob Policy
+### Recommended BluOS Knob Policy
 
 | Knob event | First BluOS intent | Notes |
 |---|---|---|

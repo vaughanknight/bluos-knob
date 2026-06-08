@@ -30,7 +30,7 @@ or engineering-harness sensors exist yet.
 | AC8: no compatible device / failed open exits clearly and does not crash | CLI error-path tests with fake platform adapter | BUILDABLE | computational |
 | AC9: tests run without hardware using fixture-backed fake HID readers | test suite command once project substrate exists | BUILDABLE | computational |
 | AC10: README and docs/how explain workflow and limitations | documentation existence/content check | BUILDABLE | computational |
-| Failure mode: Python project lacks a runnable CLI entry point | boot/smoke command such as `python -m exotic_knob --help` | BUILDABLE | computational |
+| Failure mode: Python project lacks a runnable CLI entry point | boot/smoke command such as `python -m bluos_knob --help` | BUILDABLE | computational |
 | Failure mode: HIDAPI/native dependency missing on developer machine | dependency/install check documented in setup and exercised in smoke | BUILDABLE | computational |
 | Failure mode: device-input imports CLI runtime or future amplifier-control internals | dependency-direction check or import boundary test | BUILDABLE | computational |
 | Failure mode: hardware capture evidence is misunderstood by the agent | human review of smoke notes and captured real-device fixture | ABSENT | human-judgement |

@@ -13,7 +13,7 @@ Isolate OS/HIDAPI behavior from CLI runtime and device-input contracts.
 | Lazy HID dependency | `PlatformHidError` | Keeps help, replay, and tests runnable when HIDAPI is not installed. |
 
 ```python
-from exotic_knob.platform_adapter.hidapi_reader import HidapiPlatform
+from bluos_knob.platform_adapter.hidapi_reader import HidapiPlatform
 
 devices = HidapiPlatform().enumerate_devices()
 ```
@@ -22,7 +22,7 @@ devices = HidapiPlatform().enumerate_devices()
 
 | Contract | File | Notes |
 |---|---|---|
-| HIDAPI adapter | `src/exotic_knob/platform_adapter/hidapi_reader.py` | Real hardware adapter; imports HIDAPI lazily. |
+| HIDAPI adapter | `src/bluos_knob/platform_adapter/hidapi_reader.py` | Real hardware adapter; imports HIDAPI lazily. |
 
 ## Boundary Owns
 
@@ -44,11 +44,11 @@ This domain depends on `device-input` contracts and optional HIDAPI runtime.
 
 | Component | Kind | Source |
 |---|---|---|
-| HIDAPI platform | Adapter | `src/exotic_knob/platform_adapter/hidapi_reader.py` |
+| HIDAPI platform | Adapter | `src/bluos_knob/platform_adapter/hidapi_reader.py` |
 
 ## Source Location
 
-- `src/exotic_knob/platform_adapter/`
+- `src/bluos_knob/platform_adapter/`
 - `docs/how/hid-capabilities.md`
 
 ## History

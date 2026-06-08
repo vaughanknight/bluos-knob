@@ -14,7 +14,7 @@ replaying fixtures.
 | Replaying fixtures | `main(["replay", ...])` | Reads fixture rows and emits normalized events without hardware. |
 
 ```python
-from exotic_knob.cli.main import main
+from bluos_knob.cli.main import main
 
 exit_code = main(["replay", "--fixture", "tests/fixtures/anticater/sample_reports.jsonl"])
 ```
@@ -23,8 +23,8 @@ exit_code = main(["replay", "--fixture", "tests/fixtures/anticater/sample_report
 
 | Contract | File | Notes |
 |---|---|---|
-| CLI entry point | `src/exotic_knob/cli/main.py` | `exotic-knob` and `python -m exotic_knob.cli.main`. |
-| Exit codes | `src/exotic_knob/cli/main.py` | Stable diagnostics for no-device, open failure, bad output, interrupted capture, invalid fixture, unavailable HID. |
+| CLI entry point | `src/bluos_knob/cli/main.py` | `bluos-knob` and `python -m bluos_knob.cli.main`. |
+| Exit codes | `src/bluos_knob/cli/main.py` | Stable diagnostics for no-device, open failure, bad output, interrupted capture, invalid fixture, unavailable HID. |
 
 ## Boundary Owns
 
@@ -47,12 +47,12 @@ This domain depends on `device-input`, `configuration`, and `platform-adapter`.
 
 | Component | Kind | Source |
 |---|---|---|
-| CLI main | Runtime | `src/exotic_knob/cli/main.py` |
+| CLI main | Runtime | `src/bluos_knob/cli/main.py` |
 | CLI tests | Integration | `tests/integration/` |
 
 ## Source Location
 
-- `src/exotic_knob/cli/`
+- `src/bluos_knob/cli/`
 - `tests/integration/`
 - `README.md`
 - `docs/how/anticater-capture.md`

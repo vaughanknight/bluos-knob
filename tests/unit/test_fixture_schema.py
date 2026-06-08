@@ -1,11 +1,11 @@
-from exotic_knob.device_input.contracts import (
+from bluos_knob.device_input.contracts import (
     CaptureFixtureRow,
     ConnectionState,
     DeviceIdentity,
     RawHidReport,
     TransportMode,
 )
-from exotic_knob.device_input.fixture_schema import (
+from bluos_knob.device_input.fixture_schema import (
     FixtureSchemaError,
     redact_local_identity,
     row_from_json_line,

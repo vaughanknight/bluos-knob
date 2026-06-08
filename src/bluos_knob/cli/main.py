@@ -10,15 +10,15 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Protocol, TextIO
 
-from exotic_knob.configuration.profiles import default_anticater_profile
-from exotic_knob.device_input.contracts import CaptureFixtureRow, HidDeviceInfo, RawHidReport
-from exotic_knob.device_input.fixture_schema import (
+from bluos_knob.configuration.profiles import default_anticater_profile
+from bluos_knob.device_input.contracts import CaptureFixtureRow, HidDeviceInfo, RawHidReport
+from bluos_knob.device_input.fixture_schema import (
     FixtureSchemaError,
     load_jsonl,
     row_to_json_line,
 )
-from exotic_knob.device_input.normalizer import normalize_report
-from exotic_knob.platform_adapter.hidapi_reader import HidapiPlatform, PlatformHidError
+from bluos_knob.device_input.normalizer import normalize_report
+from bluos_knob.platform_adapter.hidapi_reader import HidapiPlatform, PlatformHidError
 
 EXIT_OK = 0
 EXIT_NO_DEVICE = 10
@@ -46,7 +46,7 @@ Clock = Callable[[], float]
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="exotic-knob")
+    parser = argparse.ArgumentParser(prog="bluos-knob")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     list_parser = subparsers.add_parser("list", help="List candidate HID interfaces.")

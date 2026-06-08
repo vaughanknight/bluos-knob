@@ -3,7 +3,7 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "exotic-knob"
+name = "bluos-knob"
 version = "0.1.0"
 description = "CLI baseline for capturing Anticater VK-01 HID input."
 readme = "README.md"
@@ -16,10 +16,10 @@ hid = ["hidapi>=0.14.0"]
 dev = ["pytest>=8.0", "ruff>=0.6"]
 
 [project.scripts]
-exotic-knob = "exotic_knob.cli.main:entrypoint"
+bluos-knob = "bluos_knob.cli.main:entrypoint"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/exotic_knob"]
+packages = ["src/bluos_knob"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

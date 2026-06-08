@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from exotic_knob.device_input.contracts import (
+from bluos_knob.device_input.contracts import (
     SCHEMA_VERSION,
     CaptureFixtureRow,
     ConnectionState,

@@ -1,14 +1,14 @@
 import io
 
-from exotic_knob.cli.main import (
+from bluos_knob.cli.main import (
     EXIT_BAD_OUTPUT,
     EXIT_INTERRUPTED,
     EXIT_NO_DEVICE,
     EXIT_OPEN_FAILED,
     main,
 )
-from exotic_knob.device_input.contracts import DeviceIdentity, HidDeviceInfo
-from exotic_knob.device_input.fake_hid import FakeHidPlatform
+from bluos_knob.device_input.contracts import DeviceIdentity, HidDeviceInfo
+from bluos_knob.device_input.fake_hid import FakeHidPlatform
 
 
 def test_given_no_candidate_when_listing_then_clear_no_device_exit():

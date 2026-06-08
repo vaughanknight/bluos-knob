@@ -13,7 +13,7 @@ device path or private identifier.
 | Default Anticater profile | `default_anticater_profile` | Broad default that prefers Anticater/VK product names without requiring local IDs. |
 
 ```python
-from exotic_knob.configuration.profiles import default_anticater_profile
+from bluos_knob.configuration.profiles import default_anticater_profile
 
 matches = [device for device in devices if default_anticater_profile().matches(device)]
 ```
@@ -22,7 +22,7 @@ matches = [device for device in devices if default_anticater_profile().matches(d
 
 | Contract | File | Notes |
 |---|---|---|
-| Anticater profile | `src/exotic_knob/configuration/profiles.py` | Device filtering without local path or serial coupling. |
+| Anticater profile | `src/bluos_knob/configuration/profiles.py` | Device filtering without local path or serial coupling. |
 
 ## Boundary Owns
 
@@ -43,11 +43,11 @@ This domain depends on `device-input` contracts.
 
 | Component | Kind | Source |
 |---|---|---|
-| Profiles | Pure configuration helpers | `src/exotic_knob/configuration/profiles.py` |
+| Profiles | Pure configuration helpers | `src/bluos_knob/configuration/profiles.py` |
 
 ## Source Location
 
-- `src/exotic_knob/configuration/`
+- `src/bluos_knob/configuration/`
 - `tests/unit/test_profiles.py`
 
 ## History

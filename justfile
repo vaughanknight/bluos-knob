@@ -16,7 +16,7 @@ doctor-hid:
     python3 -c "import hid; print(f'hidapi import OK; {len(hid.enumerate())} HID devices visible')"
 
 list-devices:
-    python3 -m exotic_knob.cli.main list
+    python3 -m bluos_knob.cli.main list
 
 capture-gestures:
     bash scripts/capture_anticater_gestures.sh
@@ -66,13 +66,13 @@ bluos-source-spotify host=bluos_host port=bluos_port:
     python3 scripts/bluos_source.py --host "{{host}}" --port "{{port}}" switch --source "Spotify" --safe-db "-40" --i-understand-this-changes-source
 
 daemon host="192.168.1.67" path="auto" max_db="-24":
-    python3 scripts/exotic_daemon.py --anticater-path "{{path}}" --bluos-host "{{host}}" --max-db "{{max_db}}" --i-understand-this-controls-the-amplifier
+    python3 scripts/bluos_daemon.py --anticater-path "{{path}}" --bluos-host "{{host}}" --max-db "{{max_db}}" --i-understand-this-controls-the-amplifier
 
 daemon-dry-run host="192.168.1.67" path="auto":
-    python3 scripts/exotic_daemon.py --anticater-path "{{path}}" --bluos-host "{{host}}" --dry-run
+    python3 scripts/bluos_daemon.py --anticater-path "{{path}}" --bluos-host "{{host}}" --dry-run
 
 daemon-once host="192.168.1.67" path="auto" max_db="-24":
-    python3 scripts/exotic_daemon.py --anticater-path "{{path}}" --bluos-host "{{host}}" --max-db "{{max_db}}" --limit 1 --i-understand-this-controls-the-amplifier
+    python3 scripts/bluos_daemon.py --anticater-path "{{path}}" --bluos-host "{{host}}" --max-db "{{max_db}}" --limit 1 --i-understand-this-controls-the-amplifier
 
 test:
     python3 -m pytest
@@ -82,5 +82,5 @@ lint:
     python3 scripts/check_boundaries.py
 
 smoke:
-    python3 -m exotic_knob.cli.main --help >/dev/null
-    python3 -m exotic_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl >/dev/null
+    python3 -m bluos_knob.cli.main --help >/dev/null
+    python3 -m bluos_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl >/dev/null

@@ -1,4 +1,4 @@
-from exotic_knob.platform_adapter.hidapi_reader import HidapiPlatform, HidapiReportReader
+from bluos_knob.platform_adapter.hidapi_reader import HidapiPlatform, HidapiReportReader
 
 
 class _Device:
@@ -45,7 +45,7 @@ def test_given_text_path_when_opening_then_hidapi_receives_bytes(monkeypatch):
     """
     device = _OpenDevice()
     fake_hid = type("FakeHid", (), {"device": lambda self: device})()
-    monkeypatch.setattr("exotic_knob.platform_adapter.hidapi_reader._load_hid", lambda: fake_hid)
+    monkeypatch.setattr("bluos_knob.platform_adapter.hidapi_reader._load_hid", lambda: fake_hid)
 
     HidapiPlatform().open("DevSrvsID:123")
 

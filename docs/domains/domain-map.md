@@ -33,5 +33,5 @@ flowchart LR
 | Check | Command | Status |
 |---|---|---|
 | Import boundaries | `python scripts/check_boundaries.py` | Active |
-| Deterministic replay | `python -m exotic_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl` | Active |
+| Deterministic replay | `python -m bluos_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl` | Active |
 

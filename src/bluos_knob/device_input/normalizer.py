@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from exotic_knob.device_input.contracts import NormalizedAction, NormalizedKnobEvent, RawHidReport
+from bluos_knob.device_input.contracts import NormalizedAction, NormalizedKnobEvent, RawHidReport
 
 CONSUMER_USAGE_TO_ACTION = {
     0x00E9: NormalizedAction.VOLUME_UP,

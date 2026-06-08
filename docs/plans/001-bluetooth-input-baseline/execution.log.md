@@ -12,8 +12,8 @@ Boot → Interact → Observe loop:
 
 | Stage | Status | Evidence |
 |---|---|---|
-| Boot | PASS | `python3 -m exotic_knob.cli.main --help` |
-| Interact | PASS | `python3 -m exotic_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl` |
+| Boot | PASS | `python3 -m bluos_knob.cli.main --help` |
+| Interact | PASS | `python3 -m bluos_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl` |
 | Observe | PASS | `python3 -m pytest`, `python3 -m ruff check .`, `python3 scripts/check_boundaries.py` |
 
 ## Task Entries
@@ -22,7 +22,7 @@ Boot → Interact → Observe loop:
 |---|---|---|
 | T001 | Complete | Created `docs/domains/registry.md`, `docs/domains/domain-map.md`, and six domain docs. |
 | T002 | Complete | Created `.gitignore`, `pyproject.toml`, `justfile`, and `docs/project-rules/engineering-harness.md`. |
-| T003 | Complete | Created `src/exotic_knob` package and domain package boundaries. |
+| T003 | Complete | Created `src/bluos_knob` package and domain package boundaries. |
 | T004 | Complete | Added HID contracts, JSONL fixture schema, redaction helper, fixture docs, and schema tests. |
 | T005 | Complete | Added fixture-backed fake HID platform/reader, sample JSONL reports, and fake-reader tests. |
 | T006 | Complete | Added shared normalizer for volume, mute, brightness, no-op release, and unknown reports with tests. |
@@ -40,8 +40,8 @@ python3 -m pip install -e ".[dev]"  # PASS
 python3 -m pytest                   # 23 passed after review fixes
 python3 -m ruff check .             # All checks passed
 python3 scripts/check_boundaries.py # Domain boundary check passed
-python3 -m exotic_knob.cli.main --help
-python3 -m exotic_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl
+python3 -m bluos_knob.cli.main --help
+python3 -m bluos_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl
 just smoke                          # PASS after switching recipes to python3
 git diff --check                    # PASS after doctrine whitespace cleanup
 ```

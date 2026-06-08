@@ -15,7 +15,7 @@ TODO(SERVICE_MANAGER)
 
 ## System Purpose
 
-Exotic Knob is a local daemon application. A Bluetooth volume knob connects to
+BluOS Knob is a local daemon application. A Bluetooth volume knob connects to
 the daemon, and the daemon controls volume on a NAD M33 BluOS amplifier.
 
 The architecture prioritizes safe physical side effects, deterministic policy,

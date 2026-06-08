@@ -30,7 +30,7 @@ capture_gesture() {
   printf '\n--- %s ---\n%s\n' "$label" "$instruction"
   read -r -p "Press Enter to START ${label} capture..."
 
-  PYTHONUNBUFFERED=1 python3 -m exotic_knob.cli.main capture \
+  PYTHONUNBUFFERED=1 python3 -m bluos_knob.cli.main capture \
     --path "$DEVICE_PATH" \
     --output "$output" \
     --timeout-ms 1000 \

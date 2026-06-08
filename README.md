@@ -1,4 +1,4 @@
-# Exotic Knob
+# BluOS Knob
 
 ```text
  _______  _____ _____ ___ ____   _  ___   _  ___  ____
@@ -15,7 +15,7 @@
 
 **Tiny knob. Big stereo energy. Zero blown speakers.**
 
-Exotic Knob is a local, safety-first volume knob for the **NAD M33** and other
+BluOS Knob is a local, safety-first volume knob for the **NAD M33** and other
 **BluOS** players. It takes a tiny Anticater VK-01 Bluetooth knob and teaches it
 some hi-fi manners: volume nudges, mute, source shortcuts, replayable hardware
 captures, and guardrails that keep the party from turning into an accidental
@@ -59,8 +59,8 @@ volume steps are guarded by a configured maximum, currently tested with
 
 ```bash
 python3 -m pip install -e ".[dev]"
-python3 -m exotic_knob.cli.main --help
-python3 -m exotic_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl
+python3 -m bluos_knob.cli.main --help
+python3 -m bluos_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl
 ```
 
 ## Anticater hardware harness
@@ -78,7 +78,7 @@ just capture-gestures
 Direct capture is also available:
 
 ```bash
-python3 -m exotic_knob.cli.main capture \
+python3 -m bluos_knob.cli.main capture \
   --path "<path from just list-devices>" \
   --output capture.local.jsonl \
   --operation-label live-probe
@@ -145,7 +145,7 @@ The daemon auto-discovers the current Anticater HID path, which can change after
 sleep/reconnect, and logs what it does:
 
 ```bash
-tail -f /tmp/exotic-knob-daemon.log
+tail -f /tmp/bluos-knob-daemon.log
 ```
 
 ## Checks

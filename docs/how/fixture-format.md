@@ -24,6 +24,6 @@ before sharing fixtures publicly.
 Replay command:
 
 ```bash
-python -m exotic_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl
+python -m bluos_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl
 ```
 

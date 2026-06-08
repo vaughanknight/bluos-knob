@@ -14,8 +14,8 @@ transport-neutral normalized events.
 | Normalizing knob input | `normalize_report` | Maps known HID consumer usages to volume, mute, brightness, no-op, or unknown events while preserving raw correlation. |
 
 ```python
-from exotic_knob.device_input.fixture_schema import load_jsonl
-from exotic_knob.device_input.normalizer import normalize_report
+from bluos_knob.device_input.fixture_schema import load_jsonl
+from bluos_knob.device_input.normalizer import normalize_report
 
 events = [normalize_report(row.raw_report) for row in load_jsonl("sample_reports.jsonl")]
 ```
@@ -24,10 +24,10 @@ events = [normalize_report(row.raw_report) for row in load_jsonl("sample_reports
 
 | Contract | File | Notes |
 |---|---|---|
-| HID data contracts | `src/exotic_knob/device_input/contracts.py` | Public dataclasses/enums shared by CLI and platform adapter. |
-| Fixture schema | `src/exotic_knob/device_input/fixture_schema.py` | JSONL serialization, validation, and redaction helpers. |
-| Fake HID reader | `src/exotic_knob/device_input/fake_hid.py` | Behavior fake for deterministic boundary tests. |
-| Normalizer | `src/exotic_knob/device_input/normalizer.py` | Shared live-capture and replay normalization path. |
+| HID data contracts | `src/bluos_knob/device_input/contracts.py` | Public dataclasses/enums shared by CLI and platform adapter. |
+| Fixture schema | `src/bluos_knob/device_input/fixture_schema.py` | JSONL serialization, validation, and redaction helpers. |
+| Fake HID reader | `src/bluos_knob/device_input/fake_hid.py` | Behavior fake for deterministic boundary tests. |
+| Normalizer | `src/bluos_knob/device_input/normalizer.py` | Shared live-capture and replay normalization path. |
 
 ## Boundary Owns
 
@@ -54,14 +54,14 @@ Domains that depend on this: `cli-runtime`, `platform-adapter`, future
 
 | Component | Kind | Source |
 |---|---|---|
-| Contracts | Dataclasses/enums | `src/exotic_knob/device_input/contracts.py` |
-| Fixture schema | Parser/serializer | `src/exotic_knob/device_input/fixture_schema.py` |
-| Fake HID | Test fake | `src/exotic_knob/device_input/fake_hid.py` |
-| Normalizer | Pure function | `src/exotic_knob/device_input/normalizer.py` |
+| Contracts | Dataclasses/enums | `src/bluos_knob/device_input/contracts.py` |
+| Fixture schema | Parser/serializer | `src/bluos_knob/device_input/fixture_schema.py` |
+| Fake HID | Test fake | `src/bluos_knob/device_input/fake_hid.py` |
+| Normalizer | Pure function | `src/bluos_knob/device_input/normalizer.py` |
 
 ## Source Location
 
-- `src/exotic_knob/device_input/`
+- `src/bluos_knob/device_input/`
 - `tests/unit/test_fixture_schema.py`
 - `tests/unit/test_fake_hid_reader.py`
 - `tests/unit/test_normalizer.py`

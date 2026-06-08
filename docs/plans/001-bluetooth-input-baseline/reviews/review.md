@@ -1,10 +1,10 @@
 # Code Review: Simple Mode
 
-**Plan**: `/Users/vaughanknight/GitHub/exotic-knob/docs/plans/001-bluetooth-input-baseline/bluetooth-input-baseline-plan.md`  
-**Spec**: `/Users/vaughanknight/GitHub/exotic-knob/docs/plans/001-bluetooth-input-baseline/bluetooth-input-baseline-spec.md`  
-**Phase**: Simple Mode  
-**Date**: 2026-06-05  
-**Reviewer**: Automated (plan-7-v2)  
+**Plan**: `/Users/vaughanknight/GitHub/bluos-knob/docs/plans/001-bluetooth-input-baseline/bluetooth-input-baseline-plan.md`
+**Spec**: `/Users/vaughanknight/GitHub/bluos-knob/docs/plans/001-bluetooth-input-baseline/bluetooth-input-baseline-spec.md`
+**Phase**: Simple Mode
+**Date**: 2026-06-05
+**Reviewer**: Automated (plan-7-v2)
 **Testing Approach**: Hybrid
 
 ## A) Verdict
@@ -43,7 +43,7 @@ evidence remains a documented human/device follow-up.
 
 | ID | Severity | File:Lines | Category | Summary | Recommendation |
 |----|----------|------------|----------|---------|----------------|
-| N001 | LOW | `/Users/vaughanknight/GitHub/exotic-knob/tests/fixtures/anticater/README.md` | evidence | Real Anticater operation/capability evidence is pending physical-device exercise. | Keep this as an explicit smoke follow-up; do not mark it complete until real capture is recorded. |
+| N001 | LOW | `/Users/vaughanknight/GitHub/bluos-knob/tests/fixtures/anticater/README.md` | evidence | Real Anticater operation/capability evidence is pending physical-device exercise. | Keep this as an explicit smoke follow-up; do not mark it complete until real capture is recorded. |
 
 ## E) Detailed Findings
 
@@ -114,7 +114,7 @@ boundaries, and no LED/RGB control.
 ### E.6) Harness Live Validation
 
 - Agent harness status: **HEALTHY**
-- Boot: `python3 -m exotic_knob.cli.main --help` passed.
+- Boot: `python3 -m bluos_knob.cli.main --help` passed.
 - Health: `just smoke` passed.
 - Interact: fixture replay emitted six JSONL normalized events.
 - Observe: `python3 -m pytest`, `python3 -m ruff check .`,
@@ -148,8 +148,8 @@ git diff --no-index -- /dev/null <untracked-file>
 python3 -m pytest
 python3 -m ruff check .
 python3 scripts/check_boundaries.py
-python3 -m exotic_knob.cli.main --help
-python3 -m exotic_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl
+python3 -m bluos_knob.cli.main --help
+python3 -m bluos_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl
 just smoke
 git diff --check
 ```
@@ -161,26 +161,26 @@ git diff --check
 
 **Review result**: APPROVE WITH NOTES
 
-**Plan**: `/Users/vaughanknight/GitHub/exotic-knob/docs/plans/001-bluetooth-input-baseline/bluetooth-input-baseline-plan.md`  
-**Spec**: `/Users/vaughanknight/GitHub/exotic-knob/docs/plans/001-bluetooth-input-baseline/bluetooth-input-baseline-spec.md`  
-**Phase**: Simple Mode  
-**Tasks dossier**: inline in plan  
-**Execution log**: `/Users/vaughanknight/GitHub/exotic-knob/docs/plans/001-bluetooth-input-baseline/execution.log.md`  
-**Review file**: `/Users/vaughanknight/GitHub/exotic-knob/docs/plans/001-bluetooth-input-baseline/reviews/review.md`
+**Plan**: `/Users/vaughanknight/GitHub/bluos-knob/docs/plans/001-bluetooth-input-baseline/bluetooth-input-baseline-plan.md`
+**Spec**: `/Users/vaughanknight/GitHub/bluos-knob/docs/plans/001-bluetooth-input-baseline/bluetooth-input-baseline-spec.md`
+**Phase**: Simple Mode
+**Tasks dossier**: inline in plan
+**Execution log**: `/Users/vaughanknight/GitHub/bluos-knob/docs/plans/001-bluetooth-input-baseline/execution.log.md`
+**Review file**: `/Users/vaughanknight/GitHub/bluos-knob/docs/plans/001-bluetooth-input-baseline/reviews/review.md`
 
 ### Files Reviewed
 
 | File (absolute path) | Status | Domain | Action Needed |
 |---------------------|--------|--------|---------------|
-| `/Users/vaughanknight/GitHub/exotic-knob/src/exotic_knob/platform_adapter/hidapi_reader.py` | Approved | platform-adapter | None |
-| `/Users/vaughanknight/GitHub/exotic-knob/src/exotic_knob/device_input/fixture_schema.py` | Approved | device-input | None |
-| `/Users/vaughanknight/GitHub/exotic-knob/src/exotic_knob/device_input/fake_hid.py` | Approved | device-input | None |
-| `/Users/vaughanknight/GitHub/exotic-knob/src/exotic_knob/device_input/normalizer.py` | Approved | device-input | None |
-| `/Users/vaughanknight/GitHub/exotic-knob/src/exotic_knob/cli/main.py` | Approved | cli-runtime | None |
-| `/Users/vaughanknight/GitHub/exotic-knob/src/exotic_knob/configuration/profiles.py` | Approved | configuration | None |
-| `/Users/vaughanknight/GitHub/exotic-knob/justfile` | Approved | cli-runtime | None |
-| `/Users/vaughanknight/GitHub/exotic-knob/docs/project-rules/engineering-harness.md` | Approved | platform-adapter | None |
-| `/Users/vaughanknight/GitHub/exotic-knob/tests/fixtures/anticater/README.md` | Approved with note | device-input | Add real smoke evidence after physical capture. |
+| `/Users/vaughanknight/GitHub/bluos-knob/src/bluos_knob/platform_adapter/hidapi_reader.py` | Approved | platform-adapter | None |
+| `/Users/vaughanknight/GitHub/bluos-knob/src/bluos_knob/device_input/fixture_schema.py` | Approved | device-input | None |
+| `/Users/vaughanknight/GitHub/bluos-knob/src/bluos_knob/device_input/fake_hid.py` | Approved | device-input | None |
+| `/Users/vaughanknight/GitHub/bluos-knob/src/bluos_knob/device_input/normalizer.py` | Approved | device-input | None |
+| `/Users/vaughanknight/GitHub/bluos-knob/src/bluos_knob/cli/main.py` | Approved | cli-runtime | None |
+| `/Users/vaughanknight/GitHub/bluos-knob/src/bluos_knob/configuration/profiles.py` | Approved | configuration | None |
+| `/Users/vaughanknight/GitHub/bluos-knob/justfile` | Approved | cli-runtime | None |
+| `/Users/vaughanknight/GitHub/bluos-knob/docs/project-rules/engineering-harness.md` | Approved | platform-adapter | None |
+| `/Users/vaughanknight/GitHub/bluos-knob/tests/fixtures/anticater/README.md` | Approved with note | device-input | Add real smoke evidence after physical capture. |
 
 ### Required Fixes
 
@@ -195,6 +195,6 @@ None.
 Implementation review is approved. Continue to merge analysis:
 
 ```text
-/plan-8-v2-merge --plan "/Users/vaughanknight/GitHub/exotic-knob/docs/plans/001-bluetooth-input-baseline/bluetooth-input-baseline-plan.md"
+/plan-8-v2-merge --plan "/Users/vaughanknight/GitHub/bluos-knob/docs/plans/001-bluetooth-input-baseline/bluetooth-input-baseline-plan.md"
 ```
 

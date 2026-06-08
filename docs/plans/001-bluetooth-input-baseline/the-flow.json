@@ -100,7 +100,7 @@
       "artifacts": [
         "pyproject.toml",
         "justfile",
-        "src/exotic_knob/",
+        "src/bluos_knob/",
         "tests/",
         "docs/domains/",
         "docs/how/",

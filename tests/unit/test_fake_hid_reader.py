@@ -1,5 +1,5 @@
-from exotic_knob.device_input.contracts import DeviceIdentity, HidDeviceInfo, RawHidReport
-from exotic_knob.device_input.fake_hid import FakeHidPlatform
+from bluos_knob.device_input.contracts import DeviceIdentity, HidDeviceInfo, RawHidReport
+from bluos_knob.device_input.fake_hid import FakeHidPlatform
 
 
 def test_given_fixture_backed_fake_when_opened_then_reports_replay_in_order():

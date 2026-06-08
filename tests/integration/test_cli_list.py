@@ -1,9 +1,9 @@
 import io
 import json
 
-from exotic_knob.cli.main import EXIT_OK, main
-from exotic_knob.device_input.contracts import DeviceIdentity, HidDeviceInfo
-from exotic_knob.device_input.fake_hid import FakeHidPlatform
+from bluos_knob.cli.main import EXIT_OK, main
+from bluos_knob.device_input.contracts import DeviceIdentity, HidDeviceInfo
+from bluos_knob.device_input.fake_hid import FakeHidPlatform
 
 
 def test_given_fake_platform_when_listing_then_candidate_metadata_is_printed():

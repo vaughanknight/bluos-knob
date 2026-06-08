@@ -7,14 +7,14 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src" / "exotic_knob"
+SRC = ROOT / "src" / "bluos_knob"
 
 FORBIDDEN_IMPORTS = {
-    "device_input": ("exotic_knob.platform_adapter", "exotic_knob.cli", "hid"),
-    "configuration": ("exotic_knob.cli", "exotic_knob.platform_adapter", "hid"),
-    "platform_adapter": ("exotic_knob.cli", "exotic_knob.configuration"),
-    "volume_policy": ("hid", "exotic_knob.platform_adapter", "exotic_knob.cli"),
-    "amplifier_control": ("hid", "exotic_knob.platform_adapter", "exotic_knob.device_input"),
+    "device_input": ("bluos_knob.platform_adapter", "bluos_knob.cli", "hid"),
+    "configuration": ("bluos_knob.cli", "bluos_knob.platform_adapter", "hid"),
+    "platform_adapter": ("bluos_knob.cli", "bluos_knob.configuration"),
+    "volume_policy": ("hid", "bluos_knob.platform_adapter", "bluos_knob.cli"),
+    "amplifier_control": ("hid", "bluos_knob.platform_adapter", "bluos_knob.device_input"),
 }
 
 

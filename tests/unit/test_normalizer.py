@@ -1,11 +1,11 @@
 import pytest
 
-from exotic_knob.device_input.contracts import (
+from bluos_knob.device_input.contracts import (
     DeviceIdentity,
     NormalizedAction,
     RawHidReport,
 )
-from exotic_knob.device_input.normalizer import normalize_report
+from bluos_knob.device_input.normalizer import normalize_report
 
 
 @pytest.mark.parametrize(

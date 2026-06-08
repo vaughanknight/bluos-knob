@@ -7,7 +7,7 @@
 Boot command:
 
 ```bash
-python3 -m exotic_knob.cli.main --help
+python3 -m bluos_knob.cli.main --help
 ```
 
 Health check:
@@ -24,9 +24,9 @@ committed Anticater sample fixture.
 Primary interaction is terminal CLI:
 
 ```bash
-python3 -m exotic_knob.cli.main list
-python3 -m exotic_knob.cli.main capture --path "<device-path>" --output capture.local.jsonl --limit 20
-python3 -m exotic_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl
+python3 -m bluos_knob.cli.main list
+python3 -m bluos_knob.cli.main capture --path "<device-path>" --output capture.local.jsonl --limit 20
+python3 -m bluos_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl
 ```
 
 Real `list` and `capture` require OS-level pairing and HIDAPI. Replay does not
@@ -109,7 +109,7 @@ Evidence sources:
 
 1. `just test` and `just lint` output.
 2. JSONL fixture files from capture.
-3. Replay output from `python3 -m exotic_knob.cli.main replay`.
+3. Replay output from `python3 -m bluos_knob.cli.main replay`.
 4. Hardware smoke notes under `tests/fixtures/anticater/README.md`.
 
 ## History

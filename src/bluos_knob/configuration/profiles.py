@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from exotic_knob.device_input.contracts import HidDeviceInfo
+from bluos_knob.device_input.contracts import HidDeviceInfo
 
 
 @dataclass(frozen=True)

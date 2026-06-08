@@ -15,7 +15,7 @@ TODO(SERVICE_MANAGER), TODO(CI)
 Supporting docs/templates update status: No templates or command references found.
 -->
 
-# Exotic Knob Project Constitution
+# BluOS Knob Project Constitution
 
 **Version**: 1.1.0
 **Ratified**: 2026-06-05

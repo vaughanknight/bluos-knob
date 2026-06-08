@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from exotic_knob.device_input.contracts import (
+from bluos_knob.device_input.contracts import (
     ConnectionState,
     DeviceCapability,
     DeviceIdentity,

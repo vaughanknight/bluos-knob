@@ -1,14 +1,14 @@
 from dataclasses import replace
 from decimal import Decimal
 
-from exotic_knob.device_input.contracts import (
+from bluos_knob.device_input.contracts import (
     DeviceIdentity,
     HidDeviceInfo,
     NormalizedAction,
     NormalizedKnobEvent,
     TransportMode,
 )
-from scripts.exotic_daemon import (
+from scripts.bluos_daemon import (
     DaemonConfig,
     discover_anticater_paths,
     execute_command_for_daemon,
@@ -101,7 +101,7 @@ def test_given_volume_up_at_max_when_executed_then_daemon_logs_refusal(monkeypat
     - Worked Example: -24 + 1 with max -24 is refused.
     """
     monkeypatch.setattr(
-        "scripts.exotic_daemon._fetch_summary",
+        "scripts.bluos_daemon._fetch_summary",
         lambda config, command: {"db": "-24", "mute": "0", "volume": "95"},
     )
 

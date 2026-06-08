@@ -1,4 +1,4 @@
-"""Exotic Knob CLI baseline."""
+"""BluOS Knob CLI baseline."""
 
 __all__ = ["__version__"]
 

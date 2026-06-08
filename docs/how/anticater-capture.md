@@ -29,7 +29,7 @@ just capture-gestures
 Use a path printed by `list`:
 
 ```bash
-python3 -m exotic_knob.cli.main capture --path "<device-path>" --output capture.local.jsonl --limit 20
+python3 -m bluos_knob.cli.main capture --path "<device-path>" --output capture.local.jsonl --limit 20
 ```
 
 Capture the operations separately or label a capture session:
@@ -46,7 +46,7 @@ If two operations produce indistinguishable reports, record that in
 ## Replay without hardware
 
 ```bash
-python3 -m exotic_knob.cli.main replay --fixture capture.local.jsonl
+python3 -m bluos_knob.cli.main replay --fixture capture.local.jsonl
 ```
 
 Replay emits the same normalized event shape used during live capture.
