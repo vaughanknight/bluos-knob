@@ -28,6 +28,39 @@ reports from the knob, replays them deterministically, talks to BluOS over its
 local API, and only changes the amplifier through harnessed commands with
 explicit safety limits.
 
+## Just run it
+
+For the "I have the knob, I have a BluOS player, let me try it" path:
+
+```bash
+git clone https://github.com/vaughanknight/bluos-knob.git
+cd bluos-knob
+
+python3 -m pip install -e ".[dev]"
+just setup-hid
+
+export BLUOS_HOST=<your-bluos-ip-address>
+just bluos-doctor
+just list-devices
+
+just daemon-start
+```
+
+Then turn the knob.
+
+The daemon auto-discovers the current Anticater HID path, so you normally do not
+need to copy a `DevSrvsID` manually. It writes activity to:
+
+```bash
+tail -f /tmp/bluos-knob-daemon.log
+```
+
+To stop it:
+
+```bash
+just daemon-stop
+```
+
 ## What works today
 
 | Area | Status |
@@ -56,7 +89,7 @@ Source switching sets a post-switch safety target of **`-40 dB`**. Positive
 volume steps are guarded by a configured maximum, currently tested with
 **`-24 dB`** as the loudness ceiling.
 
-## Get started
+## Development smoke test
 
 ```bash
 python3 -m pip install -e ".[dev]"
@@ -130,6 +163,7 @@ Run the live knob-to-BluOS loop:
 ```bash
 just daemon-dry-run
 just daemon
+just daemon-start
 ```
 
 The daemon maps knob events to the same guarded BluOS commands:
@@ -146,7 +180,7 @@ The daemon auto-discovers the current Anticater HID path, which can change after
 sleep/reconnect, and logs what it does:
 
 ```bash
-tail -f /tmp/bluos-knob-daemon.log
+just daemon-log
 ```
 
 ## Checks

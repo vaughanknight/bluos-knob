@@ -1,6 +1,8 @@
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 bluos_host := env_var_or_default("BLUOS_HOST", "")
 bluos_port := env_var_or_default("BLUOS_PORT", "11000")
+daemon_pid := "/tmp/bluos-knob-daemon.pid"
+daemon_log := "/tmp/bluos-knob-daemon.log"
 
 install:
     python3 -m pip install -e ".[dev]"
@@ -73,6 +75,22 @@ daemon-dry-run host="192.168.1.67" path="auto":
 
 daemon-once host="192.168.1.67" path="auto" max_db="-24":
     python3 scripts/bluos_daemon.py --anticater-path "{{path}}" --bluos-host "{{host}}" --max-db "{{max_db}}" --limit 1 --i-understand-this-controls-the-amplifier
+
+daemon-start host="192.168.1.67" path="auto" max_db="-24":
+    rm -f "{{daemon_pid}}" "{{daemon_log}}"
+    nohup sh -c 'echo $$ > "{{daemon_pid}}"; exec python3 scripts/bluos_daemon.py --anticater-path "{{path}}" --bluos-host "{{host}}" --max-db "{{max_db}}" --i-understand-this-controls-the-amplifier' </dev/null >"{{daemon_log}}" 2>&1 &
+    sleep 2
+    test -s "{{daemon_pid}}"
+    ps -p "$(cat "{{daemon_pid}}")" -o pid=,ppid=,stat=,etime=,command=
+    sed -n '1,20p' "{{daemon_log}}"
+
+daemon-stop:
+    test -s "{{daemon_pid}}" || (echo "No PID file at {{daemon_pid}}" >&2; exit 0)
+    kill "$(cat "{{daemon_pid}}")"
+    rm -f "{{daemon_pid}}"
+
+daemon-log:
+    tail -f "{{daemon_log}}"
 
 test:
     python3 -m pytest
