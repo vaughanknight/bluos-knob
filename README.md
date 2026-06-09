@@ -14,6 +14,8 @@
 
 **Tiny knob. Big stereo energy. Zero blown speakers.**
 
+![Anticater VK-01 wireless knob](docs/assets/vk-01-wireless-knob.png)
+
 BluOS Knob is a local, safety-first volume knob for the **NAD M33** and other
 **BluOS** players. It takes a tiny Anticater VK-01 Bluetooth knob and teaches it
 some hi-fi manners: volume nudges, mute, source shortcuts, replayable hardware
