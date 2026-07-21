@@ -1,6 +1,8 @@
 from dataclasses import replace
 from decimal import Decimal
 
+import pytest
+
 from bluos_knob.device_input.contracts import (
     DeviceIdentity,
     HidDeviceInfo,
@@ -8,11 +10,15 @@ from bluos_knob.device_input.contracts import (
     NormalizedKnobEvent,
     TransportMode,
 )
+from bluos_knob.platform_adapter.hidapi_reader import PlatformHidError
 from scripts.bluos_daemon import (
     DaemonConfig,
+    _check_memory_watchdog,
     discover_anticater_paths,
     execute_command_for_daemon,
+    open_reader_with_retry,
     planned_command,
+    reopen_idle_reader,
 )
 
 CONFIG = DaemonConfig(
@@ -27,6 +33,12 @@ CONFIG = DaemonConfig(
     timeout_ms=1000,
     request_timeout=5,
     reconnect_delay=0,
+    idle_reopen_timeouts=30,
+    absent_poll_delay=0,
+    max_rss_mb=0,
+    log_file=None,
+    log_max_bytes=5_000_000,
+    log_backup_count=3,
     dry_run=True,
 )
 
@@ -142,12 +154,188 @@ def test_given_auto_path_when_device_reenumerates_then_current_anticater_path_is
     ]
 
 
+def test_given_sustained_idle_when_reopened_then_old_reader_is_closed_and_current_path_is_used():
+    """
+    Test Doc:
+    - Why: macOS sleep can leave HID reads timing out forever without raising.
+    - Contract: The daemon can proactively close an idle handle and reopen the
+      currently discovered Anticater path.
+    - Usage Notes: The live loop triggers this after idle-reopen-timeouts.
+    - Quality Contribution: Restores knob control after sleep/wake without a
+      manual daemon restart.
+    - Worked Example: idle stale reader -> close -> open DevSrvsID:new.
+    """
+    old_reader = _Reader()
+    platform = _OpeningPlatform(
+        devices=[
+            HidDeviceInfo(
+                DeviceIdentity(product="ANTICATER_MINI", path="DevSrvsID:new", usage_page=12)
+            )
+        ]
+    )
+
+    new_reader = reopen_idle_reader(
+        platform, replace(CONFIG, anticater_path="auto"), old_reader, idle_reads=30
+    )
+
+    assert old_reader.closed is True
+    assert platform.opened_paths == ["DevSrvsID:new"]
+    assert new_reader is platform.reader
+
+
+def test_given_idle_reopen_when_cached_path_still_opens_then_no_reenumerate():
+    """
+    Test Doc:
+    - Why: hid.enumerate() is the expensive/leaky native call; reopening fires on a
+      timer while the knob is idle, so it must not re-enumerate every cycle.
+    - Contract: reopen reuses the last-opened path and skips enumeration when it opens.
+    - Usage Notes: Falls back to a full scan only if the cached path fails.
+    - Quality Contribution: Removes the per-reopen enumerate leak behind the OOM growth.
+    - Worked Example: reader at DevSrvsID:a -> reopen opens DevSrvsID:a, enumerate never called.
+    """
+    old_reader = _Reader(path="DevSrvsID:a")
+    platform = _OpeningPlatform(devices=[])
+
+    new_reader = reopen_idle_reader(
+        platform, replace(CONFIG, anticater_path="auto"), old_reader, idle_reads=300
+    )
+
+    assert old_reader.closed is True
+    assert platform.opened_paths == ["DevSrvsID:a"]
+    assert platform.enumerate_calls == 0
+    assert new_reader is platform.reader
+
+
+def test_given_idle_reopen_when_cached_path_dead_then_falls_back_to_enumerate():
+    """
+    Test Doc:
+    - Why: After sleep/wake the Bluetooth DevSrvsID can change, so the cached path dies.
+    - Contract: When the cached path no longer opens, reopen re-enumerates and opens the
+      currently discovered path.
+    - Usage Notes: The failed cached open is logged as hid_open_error, then the scan runs.
+    - Quality Contribution: Preserves sleep/wake recovery without enumerating every cycle.
+    - Worked Example: stale DevSrvsID:a fails -> enumerate -> open DevSrvsID:new.
+    """
+    old_reader = _Reader(path="DevSrvsID:a")
+    platform = _OpeningPlatform(
+        devices=[
+            HidDeviceInfo(
+                DeviceIdentity(product="ANTICATER_MINI", path="DevSrvsID:new", usage_page=12)
+            )
+        ],
+        fail_paths=["DevSrvsID:a"],
+    )
+
+    new_reader = reopen_idle_reader(
+        platform, replace(CONFIG, anticater_path="auto"), old_reader, idle_reads=300
+    )
+
+    assert old_reader.closed is True
+    assert platform.opened_paths == ["DevSrvsID:a", "DevSrvsID:new"]
+    assert platform.enumerate_calls == 1
+    assert new_reader is platform.reader
+
+
+def test_given_absent_knob_when_opening_then_slow_polls_before_it_reappears(monkeypatch):
+    """
+    Test Doc:
+    - Why: A disconnected knob must not spin a tight enumerate/open loop that burns CPU
+      and churns native HID allocations.
+    - Contract: When no candidate paths are found, open waits absent_poll_delay before the
+      next scan; when the knob reappears it opens normally.
+    - Usage Notes: A present-but-unopenable knob still uses the shorter reconnect_delay.
+    - Quality Contribution: Caps idle churn while the knob is away.
+    - Worked Example: enumerate [] -> sleep 30 -> enumerate [device] -> open.
+    """
+    sleeps = []
+    monkeypatch.setattr("scripts.bluos_daemon.time.sleep", lambda seconds: sleeps.append(seconds))
+    device = HidDeviceInfo(
+        DeviceIdentity(product="ANTICATER_MINI", path="DevSrvsID:back", usage_page=12)
+    )
+    platform = _SequencedPlatform(enumerations=[[], [device]])
+
+    reader = open_reader_with_retry(
+        platform,
+        replace(CONFIG, anticater_path="auto", absent_poll_delay=30, reconnect_delay=2),
+    )
+
+    assert sleeps == [30]
+    assert platform.opened_paths == ["DevSrvsID:back"]
+    assert reader is platform.reader
+
+
+def test_given_rss_over_limit_when_watchdog_checks_then_it_exits_for_respawn(monkeypatch):
+    """
+    Test Doc:
+    - Why: Any future native leak should self-recover instead of growing until the OS
+      OOM-kills the machine (the original ~18 GB failure).
+    - Contract: When measured RSS reaches max_rss_mb, the watchdog raises SystemExit so
+      launchd KeepAlive respawns a clean process.
+    - Usage Notes: max_rss_mb=0 disables the check entirely.
+    - Quality Contribution: Bounds worst-case memory growth.
+    - Worked Example: 900 MB RSS with a 512 MB limit -> SystemExit.
+    """
+    monkeypatch.setattr("scripts.bluos_daemon._current_rss_mb", lambda: 900.0)
+
+    with pytest.raises(SystemExit):
+        _check_memory_watchdog(replace(CONFIG, max_rss_mb=512))
+
+    # Disabled and under-limit checks must not exit.
+    _check_memory_watchdog(replace(CONFIG, max_rss_mb=0))
+    monkeypatch.setattr("scripts.bluos_daemon._current_rss_mb", lambda: 10.0)
+    _check_memory_watchdog(replace(CONFIG, max_rss_mb=512))
+
+
 class _Platform:
     def __init__(self, devices):
         self.devices = devices
 
     def enumerate_devices(self):
         return self.devices
+
+
+class _SequencedPlatform:
+    def __init__(self, enumerations):
+        self._enumerations = list(enumerations)
+        self.reader = _Reader()
+        self.opened_paths = []
+
+    def enumerate_devices(self):
+        if len(self._enumerations) > 1:
+            return self._enumerations.pop(0)
+        return self._enumerations[0]
+
+    def open(self, path):
+        self.opened_paths.append(path)
+        return self.reader
+
+
+class _Reader:
+    def __init__(self, path=None):
+        self.closed = False
+        self.path = path
+
+    def close(self):
+        self.closed = True
+
+
+class _OpeningPlatform:
+    def __init__(self, devices, fail_paths=()):
+        self.devices = devices
+        self.reader = _Reader()
+        self.opened_paths = []
+        self.enumerate_calls = 0
+        self._fail_paths = set(fail_paths)
+
+    def enumerate_devices(self):
+        self.enumerate_calls += 1
+        return self.devices
+
+    def open(self, path):
+        self.opened_paths.append(path)
+        if path in self._fail_paths:
+            raise PlatformHidError(f"failed to open HID path {path!r}")
+        return self.reader
 
 
 def _event(action: NormalizedAction) -> NormalizedKnobEvent:

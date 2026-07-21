@@ -1,4 +1,10 @@
-from bluos_knob.platform_adapter.hidapi_reader import HidapiPlatform, HidapiReportReader
+import pytest
+
+from bluos_knob.platform_adapter.hidapi_reader import (
+    HidapiPlatform,
+    HidapiReportReader,
+    PlatformHidError,
+)
 
 
 class _Device:
@@ -52,9 +58,43 @@ def test_given_text_path_when_opening_then_hidapi_receives_bytes(monkeypatch):
     assert device.opened_path == b"DevSrvsID:123"
 
 
+def test_given_failed_open_when_open_path_raises_then_native_handle_is_closed(monkeypatch):
+    """
+    Test Doc:
+    - Why: The daemon retries opens constantly while the Bluetooth knob is absent; a
+      partially-opened handle left to GC leaks IOKit memory on every failure and was the
+      per-failed-open contributor to the ~18 GB OOM growth.
+    - Contract: When open_path raises, the just-created device is closed before the
+      PlatformHidError propagates.
+    - Usage Notes: The error is still surfaced so callers can retry/enumerate.
+    - Quality Contribution: Removes the failed-open native leak.
+    - Worked Example: open_path raises -> device.close() called -> PlatformHidError raised.
+    """
+    device = _FailingOpenDevice()
+    fake_hid = type("FakeHid", (), {"device": lambda self: device})()
+    monkeypatch.setattr("bluos_knob.platform_adapter.hidapi_reader._load_hid", lambda: fake_hid)
+
+    with pytest.raises(PlatformHidError):
+        HidapiPlatform().open("DevSrvsID:123")
+
+    assert device.closed is True
+
+
 class _OpenDevice:
     def __init__(self):
         self.opened_path = None
 
     def open_path(self, path):
         self.opened_path = path
+
+
+class _FailingOpenDevice:
+    def __init__(self):
+        self.closed = False
+
+    def open_path(self, path):
+        del path
+        raise OSError("device busy")
+
+    def close(self):
+        self.closed = True

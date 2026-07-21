@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 from typing import Any
 
@@ -34,6 +35,10 @@ class HidapiPlatform:
         try:
             device.open_path(_path_for_hidapi(path))
         except Exception as exc:  # pragma: no cover - depends on local HID stack
+            # Free the partially-opened native handle before propagating; leaving it
+            # to GC leaks IOKit memory on every failed open (the daemon retries these
+            # constantly while the Bluetooth knob is absent).
+            _close_quietly(device)
             raise PlatformHidError(f"failed to open HID path {path!r}: {exc}") from exc
         return HidapiReportReader(device=device, path=path)
 
@@ -43,6 +48,10 @@ class HidapiReportReader:
         self._device = device
         self._path = path
         self._sequence = 0
+
+    @property
+    def path(self) -> str:
+        return self._path
 
     def read_report(self, timeout_ms: int | None = None) -> RawHidReport | None:
         try:
@@ -67,6 +76,13 @@ class HidapiReportReader:
     def close(self) -> None:
         close = getattr(self._device, "close", None)
         if callable(close):
+            close()
+
+
+def _close_quietly(device: Any) -> None:
+    close = getattr(device, "close", None)
+    if callable(close):
+        with contextlib.suppress(Exception):  # pragma: no cover - depends on local HID stack
             close()
 
 
