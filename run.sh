@@ -66,7 +66,7 @@ fi
 rm -f "$DAEMON_PID" "$DAEMON_LOG"
 
 echo "==> Starting daemon"
-nohup sh -c "echo \\\$\\\$ > '$DAEMON_PID'; exec '$PWD/$VENV_DIR/bin/python' '$PWD/scripts/bluos_daemon.py' --anticater-path auto --bluos-host '$BLUOS_HOST' --max-db '-24' --i-understand-this-controls-the-amplifier" \
+nohup sh -c "echo \$\$ > '$DAEMON_PID'; exec '$PWD/$VENV_DIR/bin/python' '$PWD/scripts/bluos_daemon.py' --anticater-path auto --bluos-host '$BLUOS_HOST' --max-db '-24' --i-understand-this-controls-the-amplifier" \
   </dev/null >"$DAEMON_LOG" 2>&1 &
 
 sleep 2
@@ -89,4 +89,3 @@ echo "  tail -f $DAEMON_LOG"
 echo
 echo "Stop:"
 echo "  kill \"\$(cat $DAEMON_PID)\""
-
