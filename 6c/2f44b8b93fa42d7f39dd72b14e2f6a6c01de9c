@@ -1,0 +1,34 @@
+firmware/test/test_amp_policy/test_amp_policy.cpp
+  s_dd51bf282723cd::t_06367f98ac2638 282-284
+  s_dd51bf282723cd::t_2fa2d5b606e284 31-33,41,47,118,121,127,221,224,342-382,397-398
+firmware/lib/knob_core/src/amp_policy.cpp
+  s_dd51bf282723cd::t_9bdcfa9d56838f 13-16,110-118,165-169
+scripts/fw_console.py
+  s_dd51bf282723cd::t_40909c5c85151f 76-79
+firmware/src/amp_control.cpp
+  s_dd51bf282723cd::t_40909c5c85151f 117-118
+docs/plans/002-esp32-bridge/assets/tasks/phase-3/reviews/_computed.diff
+  s_dd51bf282723cd::t_a468cc72c84d8f 1-1288
+docs/how/esp32-bridge.md
+  s_dd51bf282723cd::t_261ffd9f00fb08 91-95,97-98
+docs/plans/002-esp32-bridge/assets/tasks/phase-3/execution.log.md
+  s_dd51bf282723cd::t_ce169fc571a374 44-49
+docs/plans/002-esp32-bridge/assets/tasks/phase-3/reviews/review.phase-3.md
+  s_dd51bf282723cd::t_c12730c92f2bd0 1-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "6c2f44b8b93fa42d7f39dd72b14e2f6a6c01de9c",
+  "prompts": {},
+  "sessions": {
+    "s_dd51bf282723cd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "58b2a6ea-9d92-4cfd-b554-854a81529448",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "Vaughan Knight <252951+vaughanknight@users.noreply.github.com>"
+    }
+  }
+}
