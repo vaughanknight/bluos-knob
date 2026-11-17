@@ -1,0 +1,50 @@
+docs/plans/002-esp32-bridge/assets/tasks/phase-3/tasks.dd.json
+  s_dd51bf282723cd::t_833dcea84cf61e 24,35,57,60,98-103,131,140-145
+docs/plans/002-esp32-bridge/validations/plan-validation.md
+  s_dd51bf282723cd::t_965e3e5df1fac0 1-13
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/tasks.dd.md
+  s_dd51bf282723cd::t_833dcea84cf61e 38,42,55-56,84-85
+docs/plans/002-esp32-bridge/the-flow.json
+  s_dd51bf282723cd::t_2fe54f18c5cd33 66-92
+  s_dd51bf282723cd::t_1f3a1c4b7d446c 6,145-327,329,345-346,352,369-371,377,388-390,396-397,414-415,424,429-430,439-440,475,491-501,507,523-533,597-764
+  s_dd51bf282723cd::t_ebcbc7268335c5 34-65,333-344
+  s_dd51bf282723cd::t_f1855672a0e851 104-144
+  s_dd51bf282723cd::t_1c35e3fa33e6bc 93-103,350
+  s_dd51bf282723cd::t_1024c5d42b660c 328,330-332,347-349,351,360,765-791
+docs/plans/002-esp32-bridge/assets/tasks/phase-2/tasks.dd.json
+  s_dd51bf282723cd::t_833dcea84cf61e 85,88,196-199
+  s_dd51bf282723cd::t_523b1144581509 200-201
+docs/plans/002-esp32-bridge/assets/tasks/phase-2/tasks.dd.md
+  s_dd51bf282723cd::t_833dcea84cf61e 44,98
+docs/plans/002-esp32-bridge/assets/tasks/phase-3/tasks.dd.md
+  s_dd51bf282723cd::t_833dcea84cf61e 38-39,41,54,73,75
+docs/plans/002-esp32-bridge/plan.dd.json
+  s_dd51bf282723cd::t_833dcea84cf61e 81
+docs/plans/002-esp32-bridge/the-flow.md
+  s_dd51bf282723cd::t_1c35e3fa33e6bc 11
+  s_dd51bf282723cd::t_1f3a1c4b7d446c 4,6,12,14-17,21,25-26,30,35-36,45
+  s_dd51bf282723cd::t_f1855672a0e851 23,54-56
+  s_dd51bf282723cd::t_2fe54f18c5cd33 49-53
+  s_dd51bf282723cd::t_ebcbc7268335c5 10,39
+  s_dd51bf282723cd::t_b38eda793dcba2 24,57-59
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/tasks.dd.json
+  s_dd51bf282723cd::t_833dcea84cf61e 24,27,66,69,108-113,170-175
+docs/plans/002-esp32-bridge/plan.dd.md
+  s_dd51bf282723cd::t_833dcea84cf61e 64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "b94a3c144e650d158f13ee9223dc0526859c2777",
+  "prompts": {},
+  "sessions": {
+    "s_dd51bf282723cd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "58b2a6ea-9d92-4cfd-b554-854a81529448",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "Vaughan Knight <252951+vaughanknight@users.noreply.github.com>"
+    }
+  }
+}
