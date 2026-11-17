@@ -124,6 +124,19 @@ void handle_command(const String& line) {
         Serial.println("{\"reboot\":true}");
         Serial.flush();
         ESP.restart();
+    } else if (cmd == "wifi scan") {
+        WiFi.setAutoReconnect(false);
+        WiFi.disconnect(true);  // stop the pending connect; a scan fails while one is in progress
+        WiFi.mode(WIFI_STA);
+        delay(300);
+        const int n = WiFi.scanNetworks(false, true);
+        Serial.printf("{\"wifi_scan\":%d}\n", n);
+        for (int i = 0; i < n; ++i) {
+            Serial.printf("{\"ssid\":\"%s\",\"rssi\":%d,\"channel\":%d,\"auth\":%d}\n", WiFi.SSID(i).c_str(),
+                          WiFi.RSSI(i), WiFi.channel(i), static_cast<int>(WiFi.encryptionType(i)));
+        }
+        WiFi.scanDelete();
+        wifi_begin();
     } else if (cmd == "scan") {
         g_knob.diag_scan(15000);
     } else if (cmd == "bonds clear") {
@@ -144,7 +157,7 @@ void handle_command(const String& line) {
     } else if (!cmd.empty()) {
         Serial.println(
             "{\"error\":\"unknown command\",\"commands\":[\"status\",\"show\",\"set <key> <value>\",\"reboot\","
-            "\"scan\",\"bonds clear\"]}");
+            "\"scan\",\"wifi scan\",\"bonds clear\"]}");
     }
 }
 
