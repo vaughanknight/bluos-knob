@@ -112,13 +112,17 @@ def main() -> int:
         print(f"Device says the settings are incomplete: {connected.get('error')}")
         return 1
     print(f"On Wi-Fi as {connected.get('ip')} (signal {connected.get('rssi')} dBm).")
-    amp = wait_for(link, lambda m: "amp" in m or m.get("seq") is not None, 6)
-    send(link, "status")
-    status = wait_for(link, lambda m: "board" in m and "amp" in m, 5)
+    status = None
+    for _ in range(5):  # the first amp poll can take a few seconds after Wi-Fi joins
+        send(link, "status")
+        status = wait_for(link, lambda m: "board" in m and "amp" in m, 2.5)
+        if status and status.get("amp") == "ok":
+            break
     if status and status.get("amp") == "ok":
         print(f"Amp {host} reachable: {status.get('db')} dB, source '{status.get('source')}'.")
-    elif amp and amp.get("amp") == "unreachable":
-        print(f"Couldn't reach the amp at {host}: {amp.get('error')}")
+    else:
+        fault = status.get("fault") if status else "no status from the device"
+        print(f"Couldn't confirm the amp at {host} yet: {fault}")
     return 0
 
 

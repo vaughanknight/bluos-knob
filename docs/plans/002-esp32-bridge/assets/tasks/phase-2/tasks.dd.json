@@ -33,7 +33,7 @@
         {
           "id": "tk-2202",
           "title": "NVS config store + serial console (`set`, `show` with masked password, `reboot`); console never echoes secrets",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2202",
           "success": "Console round-trips settings across reboot",
           "satisfies": [
@@ -44,12 +44,13 @@
         {
           "id": "tk-2203",
           "title": "scripts/fw_wifi.py + `just fw-wifi`: prompt SSID, getpass password, send to the device over serial, confirm connect result",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2203",
           "success": "Vaughan runs it and the device joins Wi-Fi; nothing secret in terminal history, logs or git",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0204"
-          ]
+          ],
+          "receipt": "Vaughan ran just fw-wifi ({home-2.4ghz-ssid}) → joined 192.168.1.69; password typed via getpass, device shows it as ****; git grep finds no password"
         },
         {
           "id": "tk-2204",
@@ -119,7 +120,7 @@
           {
             "id": "dw-2021",
             "assertion": "Values persist across reboot",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -127,13 +128,13 @@
           {
             "id": "dw-2030",
             "assertion": "Password typed hidden",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-2031",
             "assertion": "grep of repo + serial capture finds no password",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -183,13 +184,13 @@
           {
             "id": "dw-2070",
             "assertion": "Screen shows current amp dB",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-2071",
             "assertion": "Fault shown for unreachable host",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {

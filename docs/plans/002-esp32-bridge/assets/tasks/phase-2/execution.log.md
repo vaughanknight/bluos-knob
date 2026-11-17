@@ -28,3 +28,10 @@
 - Wi-Fi never joined: added STA disconnect-reason logging + plain faults. Device logs reason **201 (NO_AP_FOUND)** repeatedly. Mac is on the same SSID at **5 GHz ch 161**; the ESP32 is 2.4 GHz-only. Asked Vaughan for a 2.4 GHz network. **Noteworthy**: a 2.4 GHz requirement goes in the runbook/README.
 - Lesson: never flash while a human is running a serial tool; the logger/flash must check the port first.
 - Added serial `wifi scan` (pauses the pending connect: a scan returns -2/WIFI_SCAN_FAILED while a connect is in progress; needed `WiFi.disconnect(true)` + `WiFi.mode(WIFI_STA)`). Device scan: 29 networks on 2.4 GHz; Vaughan's UDM SSIDs on ch 11 at −60 dBm ("{open-2.4ghz-ssid}" open, "{home-2.4ghz-ssid}"/"{other-2.4ghz-ssid}" WPA2, one hidden); **"{home-5ghz-ssid}" absent → confirmed 5 GHz-only**. Offered: use an existing 2.4 GHz SSID on the amp's LAN, or enable 2.4 GHz on {home-5ghz-ssid} in UniFi.
+
+## Wi-Fi joined + read-only status live (tk-2203, tk-2207 part 1)
+- Vaughan chose existing 2.4 GHz SSID "{home-2.4ghz-ssid}" and ran `just fw-wifi`: joined as 192.168.1.69 (same /24 as the amp). The script reported "didn't find it" because it checked status before the first amp poll (**bug, fixed**: retries status for up to ~10 s).
+- Serial `status`: `wifi connected, amp ok, db -39.0, source "Optical 1"`; knob + Wi-Fi together: gestures seq 83–86 flowing, dropped 0.
+- Mac re-grabbed the knob despite Forget + Ignore (Vaughan 08:02Z). **Deferred** to the Phase 3 cut-over: investigate macOS re-pair, document in the runbook.
+- **Unreachable-amp fault** (read-only): `set host 192.168.1.250` + reboot → screen/serial fault "can't reach amp 192.168.1.250", backoff retry 2000→4000→8000→16000 ms; knob auto-reconnected after reboot (bond). Restored `host 192.168.1.67` + reboot → amp ok, fault cleared. **Config persisted across both reboots** (tk-2202).
+- Heap with BLE + Wi-Fi + HTTP: free ≈88–92 KB, min_free 81300 B.
