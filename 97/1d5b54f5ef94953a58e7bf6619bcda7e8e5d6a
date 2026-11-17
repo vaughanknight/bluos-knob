@@ -1,0 +1,25 @@
+scripts/fw_wifi.py
+  s_dd51bf282723cd::t_3a8ab8f4713dc4 115-120,123-125
+docs/plans/002-esp32-bridge/assets/tasks/phase-2/execution.log.md
+  s_dd51bf282723cd::t_5307ee1957958f 31-37
+docs/plans/002-esp32-bridge/assets/tasks/phase-2/tasks.dd.json
+  s_dd51bf282723cd::t_c84e55cba5d956 36,47,52-53,123,131,137,187,193
+docs/plans/002-esp32-bridge/assets/tasks/phase-2/tasks.dd.md
+  s_dd51bf282723cd::t_e6561a274dd3d1 39-40,44,61,67-68,95-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "971d5b54f5ef94953a58e7bf6619bcda7e8e5d6a",
+  "prompts": {},
+  "sessions": {
+    "s_dd51bf282723cd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "58b2a6ea-9d92-4cfd-b554-854a81529448",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "Vaughan Knight <252951+vaughanknight@users.noreply.github.com>"
+    }
+  }
+}
