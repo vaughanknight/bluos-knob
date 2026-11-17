@@ -1,0 +1,183 @@
+{
+  "dd": {
+    "schema": "builder/plan"
+  },
+  "sections": [
+    {
+      "name": "meta",
+      "value": {
+        "title": "Knob lag: coalesce clicks, keep-alive, idle-only screen",
+        "slug": "knob-lag",
+        "ordinal": 3,
+        "status": "ready",
+        "mode": "Simple",
+        "plan_version": "1.0.0",
+        "created": "2026-11-18",
+        "complexity": "CS-3",
+        "complexity_breakdown": "S=1 (amp_policy, amp_control, main, display), I=1 (BluOS HTTP), D=1 (queue/coalescing state), N=1, F=2 (amp safety), T=1 (native tests + hardware smoke) = 7",
+        "confidence": "0.80"
+      }
+    },
+    {
+      "name": "summary",
+      "value": "Turning the knob back and forth quickly backs up requests: every click is its own job doing a fresh-connection /Volume read and a write (2 s timeouts), handled one at a time, so bursts queue and stale clicks get dropped. Coalesce all pending clicks into one net volume change per round, keep the HTTP connection to the amp alive, and only redraw the screen when nothing is queued or in flight (the screen is for debugging, and full redraws run on the loop that receives the knob). The safety basis is unchanged: a fresh read before each write, increases written as an absolute level checked against max_db; a burst past the cap stops at max_db."
+    },
+    {
+      "name": "goals",
+      "value": [
+        "Fast back-and-forth turning feels immediate: one amp round-trip per burst, not per click.",
+        "No safety regression: never past max_db; fresh read before each write; unchanged mute/source behaviour.",
+        "Screen redraws never compete with knob handling or amp requests."
+      ]
+    },
+    {
+      "name": "non_goals",
+      "value": [
+        "Dropping the fresh /Volume read (safety basis).",
+        "Changing mute/source commands beyond queue ordering.",
+        "New screen designs."
+      ]
+    },
+    {
+      "name": "acceptance_criteria",
+      "value": [
+        {
+          "id": "ac-0301",
+          "claim": "Pending volume clicks are combined into one net step per round (e.g. up,down,up -> +1; five ups -> +5; up,down -> nothing sent), with mute/source commands acting as ordering barriers.",
+          "state": "unchecked"
+        },
+        {
+          "id": "ac-0302",
+          "claim": "A combined increase that would pass max_db is written as exactly max_db (cap_blocked flagged); it never exceeds max_db, including when the amp is muted or changed elsewhere meanwhile.",
+          "state": "unchecked"
+        },
+        {
+          "id": "ac-0303",
+          "claim": "The amp HTTP connection is reused between requests (keep-alive), with no change to timeouts or the never-retry-writes rule.",
+          "state": "unchecked"
+        },
+        {
+          "id": "ac-0304",
+          "claim": "The screen does not redraw while knob events are queued or an amp command is in flight; it redraws once when idle.",
+          "state": "unchecked"
+        },
+        {
+          "id": "ac-0305",
+          "claim": "On the device, rapid back-and-forth turning no longer backs up: serial shows coalesced steps and no control_dropped growth; Vaughan confirms it feels responsive.",
+          "state": "unchecked"
+        }
+      ]
+    },
+    {
+      "name": "phases",
+      "value": [
+        {
+          "id": "ph-8730",
+          "title": "Coalesced control + idle screen",
+          "state": "unchecked",
+          "tasks": "assets/tasks/phase-1/tasks.dd.json#tasks",
+          "objective": "Coalesce clicks, keep-alive, idle-only redraw; flash and verify.",
+          "brief": "TDD the coalescer and capped net step, then wire control task, transport and screen."
+        }
+      ]
+    },
+    {
+      "name": "research_context",
+      "value": "Diagnosis from the firmware (meeting prime, tmwk885d1c 21:56Z): amp_control.cpp queue depth 8, single task, per-click read+write, new HTTPClient per request, 1 s stale drop. Plan 002 safety rules (fresh read, abs increases, muted basis, never retry) must hold."
+    },
+    {
+      "name": "testing_strategy",
+      "value": {
+        "approach": "TDD for the coalescer and capped net step (native tests with the FakeAmp behaviour fake); hardware smoke for keep-alive, idle-only screen and feel.",
+        "mock_usage": "Fakes only (constitution)."
+      }
+    },
+    {
+      "name": "risks",
+      "value": [
+        {
+          "risk": "Coalescing changes refusal semantics at the cap",
+          "likelihood": "Medium",
+          "impact": "High",
+          "mitigation": "Clamp to max_db (never above); tests for burst past cap, muted, and race."
+        }
+      ]
+    },
+    {
+      "name": "key_findings",
+      "value": [
+        {
+          "impact": "High",
+          "finding": "Per-click read+write with a new connection each time is the backlog source.",
+          "action": "Coalesce + keep-alive."
+        },
+        {
+          "impact": "High",
+          "finding": "Full-screen redraws run on loop(), which also drains the BLE queue.",
+          "action": "Redraw only when idle."
+        },
+        {
+          "impact": "Critical",
+          "finding": "Plan 002 safety rules (fresh read, abs increases, muted basis) are the cap's basis.",
+          "action": "Keep them; clamp combined increases to max_db."
+        }
+      ]
+    },
+    {
+      "name": "gate_matrix",
+      "value": [
+        {
+          "gate": "G1",
+          "check": "Clarify",
+          "status": "PASS"
+        },
+        {
+          "gate": "G2",
+          "check": "Constitution",
+          "status": "PASS",
+          "notes": "Safety-first kept; fakes; CS not time"
+        },
+        {
+          "gate": "G3",
+          "check": "Architecture",
+          "status": "PASS"
+        },
+        {
+          "gate": "G4",
+          "check": "ADR Compliance",
+          "status": "N/A"
+        },
+        {
+          "gate": "G5",
+          "check": "Structure",
+          "status": "PASS"
+        },
+        {
+          "gate": "G6",
+          "check": "Testing Alignment",
+          "status": "PASS",
+          "notes": "RED before GREEN"
+        },
+        {
+          "gate": "G7",
+          "check": "Domain Completeness",
+          "status": "N/A"
+        }
+      ]
+    },
+    {
+      "name": "clarifications",
+      "value": [
+        {
+          "session": "2026-11-18",
+          "question": "Scope and screen behaviour",
+          "answer": "Vaughan: \"build that fix, and only update the screen after everything is done and nothing is in the queue ... that's just for debugging, not for live viewing\"."
+        }
+      ]
+    },
+    {
+      "name": "acceptance_coverage",
+      "value": []
+    }
+  ]
+}

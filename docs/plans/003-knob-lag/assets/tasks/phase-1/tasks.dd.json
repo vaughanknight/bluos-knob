@@ -1,0 +1,82 @@
+{
+  "dd": {
+    "schema": "builder/plan"
+  },
+  "sections": [
+    {
+      "name": "meta",
+      "value": {
+        "title": "Phase 1: Coalesced control + idle screen",
+        "slug": "phase-1",
+        "status": "ready",
+        "summary": "TDD core first, then device wiring, then supervised smoke."
+      }
+    },
+    {
+      "name": "summary",
+      "value": "Work top to bottom. Flashing pauses the knob ~30 s; tell Vaughan first."
+    },
+    {
+      "name": "tasks",
+      "value": [
+        {
+          "id": "tk-3101",
+          "title": "RED: native tests for the click coalescer (net sum, barriers, zero-net) and the capped net step (clamp to max_db, muted, race)",
+          "state": "unchecked",
+          "done": "#done_when/tk-3101",
+          "success": "Tests fail on stubs",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0301",
+            "../../../plan.dd.json#acceptance_criteria/ac-0302"
+          ]
+        },
+        {
+          "id": "tk-3102",
+          "title": "GREEN: knob_core coalescer + clamped net volume step in amp_policy",
+          "state": "unchecked",
+          "done": "#done_when/tk-3102",
+          "success": "All native tests pass",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0301",
+            "../../../plan.dd.json#acceptance_criteria/ac-0302"
+          ]
+        },
+        {
+          "id": "tk-3103",
+          "title": "amp_control: drain the queue into coalesced rounds; one reused HTTPClient with keep-alive; busy flag",
+          "state": "unchecked",
+          "done": "#done_when/tk-3103",
+          "success": "Builds; serial shows one command per burst",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0301",
+            "../../../plan.dd.json#acceptance_criteria/ac-0303"
+          ]
+        },
+        {
+          "id": "tk-3104",
+          "title": "main/display: skip redraws while events are queued or a command is in flight; redraw once when idle",
+          "state": "unchecked",
+          "done": "#done_when/tk-3104",
+          "success": "Builds; no redraw during bursts",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0304"
+          ]
+        },
+        {
+          "id": "tk-3105",
+          "title": "Hardware smoke: flash; rapid back-and-forth turns; check serial coalescing, control_dropped, cap; Vaughan feel check",
+          "state": "unchecked",
+          "done": "#done_when/tk-3105",
+          "success": "Recorded in execution log",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0305"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "done_when",
+      "value": {}
+    }
+  ]
+}
