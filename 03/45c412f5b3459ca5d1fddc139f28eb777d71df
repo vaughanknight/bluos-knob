@@ -1,0 +1,32 @@
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/execution.log.md
+  s_dd51bf282723cd::t_4ae73f5b4a9cdd 45-48
+  s_dd51bf282723cd::t_24f682abd51442 49-59
+firmware/src/main.cpp
+  s_dd51bf282723cd::t_a9e5a28ee4d81e 49-51,63
+firmware/src/ble_knob.cpp
+  s_dd51bf282723cd::t_98ec0237ecab2e 7-14,20-21,28,30-31,66,69,75-79,82-83,87,91,93-108,110-114,118,132,157-158,166-198,201-206,210,228
+  s_dd51bf282723cd::t_a9e5a28ee4d81e 29,55-65,214-227
+  s_dd51bf282723cd::t_c4ed8c62c8b560 229
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/tasks.dd.md
+  s_dd51bf282723cd::t_24f682abd51442 44,99
+firmware/src/ble_knob.h
+  s_dd51bf282723cd::t_a9e5a28ee4d81e 21
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/tasks.dd.json
+  s_dd51bf282723cd::t_24f682abd51442 95,100-101,215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "0345c412f5b3459ca5d1fddc139f28eb777d71df",
+  "prompts": {},
+  "sessions": {
+    "s_dd51bf282723cd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "58b2a6ea-9d92-4cfd-b554-854a81529448",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "Vaughan Knight <252951+vaughanknight@users.noreply.github.com>"
+    }
+  }
+}
