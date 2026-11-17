@@ -73,6 +73,10 @@ def main() -> int:
                 print(f"Refused: {message['error']}")
                 return 1
             state = "LIVE" if message.get("live") else "DRY-RUN"
+            if message.get("remembered") is False:
+                print(f"WARNING: device is {state} now but the setting was NOT saved.")
+                print("It will come back in its previous mode after a restart. Run this again.")
+                return 1
             print(f"Device is now {state} (remembered across restarts).")
             return 0
     print("No reply from the device.")

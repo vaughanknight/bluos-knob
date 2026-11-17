@@ -88,9 +88,14 @@ The badge always shows which mode it's in.
 - Every volume step and mute toggle starts with a fresh read of the amp. If the
   volume can't be read, nothing is sent.
 - A step that would go above `max_db` (−24 dB, can't be set higher) is refused.
-  Turning down always works.
+  Increases are sent as an absolute level that was checked against the cap, so a
+  change from the app or remote at the same moment can't push past it. Turning
+  down always works.
+- While muted the amp reports −100 dB; the checks use its real (pre-mute) level.
+  Unmute always works.
 - A source switch never raises the volume. It lowers to `source_safe_db` (−40 dB,
-  ≤ −24 enforced) first if louder, then switches.
+  ≤ −24 enforced) first if louder, switches, then re-checks and lowers again if
+  the new input came up louder.
 - A command whose reply is lost is **not retried** (it may have applied).
 - Knob gestures older than 1 s, or queued before a live/dry-run or knob-link
   change, are dropped.

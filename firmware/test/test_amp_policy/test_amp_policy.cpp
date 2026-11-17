@@ -28,6 +28,9 @@ class FakeAmp : public knob::AmpTransport {
     std::string source = "optical-1";
     bool volume_readable = true;
     bool mute_db_reported = true;
+    double race_db = 0;          // added to db just before any write applies (app/remote changed it meanwhile)
+    bool play_sets_db = false;   // the new input brings its own level
+    double play_db = 0;
     std::set<std::string> unreachable;   // paths that fail with no effect
     std::set<std::string> lose_response; // paths that apply but whose response is lost
     std::vector<std::string> requests;
@@ -35,11 +38,13 @@ class FakeAmp : public knob::AmpTransport {
     bool get(const std::string& path, std::string* body) override {
         requests.push_back(path);
         if (unreachable.count(path)) return false;
+        if (path != "/Volume" && path != "/RadioBrowse?service=Capture") db += race_db;
         if (path.rfind("/Volume?db=", 0) == 0) db += std::atof(path.c_str() + 11);
         else if (path.rfind("/Volume?abs_db=", 0) == 0) db = std::atof(path.c_str() + 15);
         else if (path.rfind("/Volume?mute=", 0) == 0) mute = path.back() == '1';
         else if (path.rfind("/Play?inputTypeIndex=", 0) == 0) source = path.substr(21);
         else if (path.rfind("/Play?url=", 0) == 0) source = knob::url_decode(path.substr(10));
+        if (play_sets_db && path.rfind("/Play?", 0) == 0) db = play_db;
         if (lose_response.count(path)) return false;
         if (path == "/RadioBrowse?service=Capture") {
             *body = kRadioBrowse;
@@ -110,16 +115,16 @@ void given_volume_below_cap_when_stepping_up_then_reads_fresh_then_writes_one_st
     /*
     Test Doc:
     - Why: Normal use: a knob turn nudges the amp by exactly one step.
-    - Contract: execute reads /Volume first, then sends /Volume?db=<step>; result carries before/after.
+    - Contract: execute reads /Volume first; an increase is sent as /Volume?abs_db=<checked target>.
     - Usage Notes: The fresh read is the safety basis; cached poll data is never used.
     - Quality Contribution: Catches skipped reads or double writes.
-    - Worked Example: amp -40, step +1 -> requests [/Volume, /Volume?db=1, ...], after -39.
+    - Worked Example: amp -40, step +1 -> requests [/Volume, /Volume?abs_db=-39], after -39.
     */
     FakeAmp amp;
     const knob::ExecResult r = run(Action::VolumeUp, amp);
     TEST_ASSERT_EQUAL(Outcome::Done, r.outcome);
     TEST_ASSERT_EQUAL_STRING("/Volume", amp.requests.at(0).c_str());
-    TEST_ASSERT_EQUAL_STRING("/Volume?db=1", amp.requests.at(1).c_str());
+    TEST_ASSERT_EQUAL_STRING("/Volume?abs_db=-39", amp.requests.at(1).c_str());
     TEST_ASSERT_EQUAL_INT(1, amp.writes());
     TEST_ASSERT_EQUAL_DOUBLE(-39, amp.db);
     TEST_ASSERT_EQUAL_DOUBLE(-40, r.before_db);
@@ -213,10 +218,10 @@ void given_lost_write_response_when_stepping_then_failed_and_never_retried() {
     - Contract: a write that returns no response is reported Failed and attempted exactly once.
     - Usage Notes: The next poll shows the real state; the user can turn again.
     - Quality Contribution: Catches retry loops on the write path.
-    - Worked Example: /Volume?db=1 applies but its response is lost -> Failed, 1 write, amp -39 (not -38).
+    - Worked Example: /Volume?abs_db=-39 applies but its response is lost -> Failed, 1 write, amp -39.
     */
     FakeAmp amp;
-    amp.lose_response.insert("/Volume?db=1");
+    amp.lose_response.insert("/Volume?abs_db=-39");
     const knob::ExecResult r = run(Action::VolumeUp, amp);
     TEST_ASSERT_EQUAL(Outcome::Failed, r.outcome);
     TEST_ASSERT_EQUAL_INT(1, amp.writes());
@@ -274,7 +279,9 @@ void given_spotify_button_when_switching_then_plays_listed_url_or_fails_without_
     FakeAmp amp;
     amp.db = -45;
     TEST_ASSERT_EQUAL(Outcome::Done, run(Action::BrightnessUp, amp).outcome);
-    TEST_ASSERT_EQUAL_STRING("/Play?url=Spotify%3Aplay", amp.requests.back().c_str());
+    bool played = false;
+    for (const auto& req : amp.requests) played = played || req == "/Play?url=Spotify%3Aplay";
+    TEST_ASSERT_TRUE(played);
     TEST_ASSERT_EQUAL_STRING("", knob::find_source_url(kRadioBrowse, "Tidal").c_str());
     TEST_ASSERT_EQUAL_STRING("Spotify%3Aplay", knob::find_source_url(kRadioBrowse, "spotify").c_str());
     knob::Config c = config();
@@ -332,6 +339,47 @@ void given_muted_amp_when_stepping_or_switching_then_cap_uses_the_real_unmuted_l
     TEST_ASSERT_FALSE(unknown.mute);
 }
 
+void given_volume_raised_elsewhere_between_read_and_write_when_stepping_up_then_never_exceeds_cap() {
+    /*
+    Test Doc:
+    - Why: Phase 3 review finding 1: a relative db=+1 applies to the level at arrival; if the app/remote raised
+      the volume after our read, the result could pass max_db.
+    - Contract: increases are written as abs_db=<target checked against max_db>; decreases stay relative.
+    - Usage Notes: the worst case is undoing a concurrent change, never exceeding the cap.
+    - Quality Contribution: Catches a return to relative increases.
+    - Worked Example: read -25, app raises +3 meanwhile, step +1 -> amp -24 (not -21).
+    */
+    FakeAmp amp;
+    amp.db = -25;
+    amp.race_db = 3;
+    TEST_ASSERT_EQUAL(Outcome::Done, run(Action::VolumeUp, amp).outcome);
+    TEST_ASSERT_EQUAL_DOUBLE(-24, amp.db);
+    FakeAmp down;
+    down.db = -30;
+    run(Action::VolumeDown, down);
+    TEST_ASSERT_EQUAL_STRING("/Volume?db=-1", down.requests.back().c_str());
+}
+
+void given_input_with_its_own_level_when_switching_source_then_rechecked_and_lowered() {
+    /*
+    Test Doc:
+    - Why: Phase 3 review finding 2: an input can come up at its own (louder) level after /Play.
+    - Contract: after switching, /Volume is re-read; above source_safe_db it is set to source_safe_db.
+    - Usage Notes: mirrors the Python order (safe level applied after the switch) while keeping lower-first.
+    - Quality Contribution: Catches a switch that leaves the amp loud.
+    - Worked Example: amp -50, new input comes up at -20 -> after switch abs_db=-40 -> amp -40.
+    */
+    FakeAmp amp;
+    amp.db = -50;
+    amp.play_sets_db = true;
+    amp.play_db = -20;
+    const knob::ExecResult r = run(Action::BrightnessDown, amp);
+    TEST_ASSERT_EQUAL(Outcome::Done, r.outcome);
+    TEST_ASSERT_EQUAL_DOUBLE(-40, amp.db);
+    TEST_ASSERT_EQUAL_STRING("/Volume?abs_db=-40", amp.requests.back().c_str());
+    TEST_ASSERT_EQUAL_DOUBLE(-40, r.after_db);
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(given_actions_when_planned_then_match_daemon_command_table);
@@ -346,5 +394,7 @@ int main() {
     RUN_TEST(given_spotify_button_when_switching_then_plays_listed_url_or_fails_without_write);
     RUN_TEST(given_event_ages_when_checked_then_old_events_are_stale);
     RUN_TEST(given_muted_amp_when_stepping_or_switching_then_cap_uses_the_real_unmuted_level);
+    RUN_TEST(given_volume_raised_elsewhere_between_read_and_write_when_stepping_up_then_never_exceeds_cap);
+    RUN_TEST(given_input_with_its_own_level_when_switching_source_then_rechecked_and_lowered);
     return UNITY_END();
 }

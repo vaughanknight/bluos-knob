@@ -10,8 +10,10 @@ namespace {
 
 std::string fmt_db(double value) {
     char buf[24];
-    snprintf(buf, sizeof(buf), "%g", value);
-    return buf;
+    snprintf(buf, sizeof(buf), "%.1f", value);  // fixed notation (never 1e+02); dB to 0.1
+    std::string s(buf);
+    if (s.size() > 2 && s.compare(s.size() - 2, 2, ".0") == 0) s.resize(s.size() - 2);
+    return s == "-0" ? "0" : s;
 }
 
 // Reads the amp and returns the real level in out->db. A muted BluOS player reports db=-100 with the
@@ -105,6 +107,15 @@ ExecResult switch_source(const Command& command, const Config& config, AmpTransp
     if (lower_first && !write(amp, "/Volume?abs_db=" + fmt_db(config.source_safe_db), &r, &body))
         return failed(r, "no reply lowering volume; source not switched");
     if (!write(amp, play_path, &r, &body)) return failed(r, "no reply switching source (not retried)");
+    // The new input may come up at its own level: re-check and lower to the safe level if needed.
+    VolumeInfo after;
+    if (!read_volume(amp, &after, &error)) return failed(r, "switched; " + error);
+    r.after_db = after.db;
+    if (after.db > config.source_safe_db) {
+        if (!write(amp, "/Volume?abs_db=" + fmt_db(config.source_safe_db), &r, &body))
+            return failed(r, "switched; no reply lowering volume");
+        r.after_db = config.source_safe_db;
+    }
     r.outcome = Outcome::Done;
     return r;
 }
@@ -151,8 +162,11 @@ ExecResult execute(const Command& command, const Config& config, AmpTransport& a
                 r.message = "dry-run";
                 return r;
             }
-            if (!write(amp, "/Volume?db=" + fmt_db(command.step_db), &r, &body))
-                return failed(r, "no reply from amp (not retried)");
+            // Increases are absolute: the target was checked against max_db, so a change made elsewhere
+            // between the read and this write can never push the result past the cap. Decreases stay relative.
+            const std::string path = command.step_db > 0 ? "/Volume?abs_db=" + fmt_db(planned)
+                                                         : "/Volume?db=" + fmt_db(command.step_db);
+            if (!write(amp, path, &r, &body)) return failed(r, "no reply from amp (not retried)");
             const VolumeInfo confirmed = parse_volume(body);
             if (confirmed.ok) r.after_db = confirmed.db;
             r.outcome = Outcome::Done;

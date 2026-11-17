@@ -1,0 +1,1288 @@
+diff --git a/firmware/lib/knob_core/src/amp_policy.cpp b/firmware/lib/knob_core/src/amp_policy.cpp
+new file mode 100644
+index 0000000..b75f7c8
+--- /dev/null
++++ b/firmware/lib/knob_core/src/amp_policy.cpp
+@@ -0,0 +1,264 @@
++#include "amp_policy.h"
++
++#include <cctype>
++#include <cstdio>
++
++#include "bluos_xml.h"
++
++namespace knob {
++namespace {
++
++std::string fmt_db(double value) {
++    char buf[24];
++    snprintf(buf, sizeof(buf), "%g", value);
++    return buf;
++}
++
++// Reads the amp and returns the real level in out->db. A muted BluOS player reports db=-100 with the
++// real level in muteDb, so while muted the basis is muteDb; muted without it is unknown (fail closed).
++bool read_volume(AmpTransport& amp, VolumeInfo* out, std::string* error) {
++    std::string body;
++    if (!amp.get("/Volume", &body)) {
++        *error = "couldn't read the amp volume";
++        return false;
++    }
++    *out = parse_volume(body);
++    if (!out->ok) {
++        *error = "amp volume unreadable";
++        return false;
++    }
++    if (out->mute) {
++        if (!out->has_mute_db) {
++            *error = "amp muted; real volume unknown";
++            return false;
++        }
++        out->db = out->mute_db;
++    }
++    return true;
++}
++
++ExecResult failed(ExecResult r, const std::string& message) {
++    r.outcome = Outcome::Failed;
++    r.message = message;
++    return r;
++}
++
++bool write(AmpTransport& amp, const std::string& path, ExecResult* r, std::string* body) {
++    r->writes++;
++    return amp.get(path, body);  // exactly once: a lost response may still have applied
++}
++
++std::string lower(std::string s) {
++    for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
++    return s;
++}
++
++bool attr(const std::string& tag, const char* name, std::string* out) {
++    const std::string needle = std::string(" ") + name + "=\"";
++    const size_t at = tag.find(needle);
++    if (at == std::string::npos) return false;
++    const size_t start = at + needle.size();
++    const size_t end = tag.find('"', start);
++    if (end == std::string::npos) return false;
++    std::string raw = tag.substr(start, end - start);
++    std::string decoded;
++    for (size_t i = 0; i < raw.size(); ++i) {
++        if (raw.compare(i, 5, "&amp;") == 0) { decoded += '&'; i += 4; }
++        else if (raw.compare(i, 4, "&lt;") == 0) { decoded += '<'; i += 3; }
++        else if (raw.compare(i, 4, "&gt;") == 0) { decoded += '>'; i += 3; }
++        else if (raw.compare(i, 6, "&quot;") == 0) { decoded += '"'; i += 5; }
++        else if (raw.compare(i, 6, "&apos;") == 0) { decoded += '\''; i += 5; }
++        else decoded += raw[i];
++    }
++    *out = decoded;
++    return true;
++}
++
++ExecResult switch_source(const Command& command, const Config& config, AmpTransport& amp, bool live,
++                         ExecResult r) {
++    VolumeInfo volume;
++    std::string error;
++    if (!read_volume(amp, &volume, &error)) return failed(r, error);
++    r.has_before = true;
++    r.before_db = volume.db;
++
++    std::string play_path;
++    if (command.kind == CommandKind::SourceOptical) {
++        play_path = "/Play?inputTypeIndex=" + url_encode_component(config.optical_input);
++    } else {
++        std::string list;
++        if (!amp.get("/RadioBrowse?service=Capture", &list)) return failed(r, "couldn't read the amp's sources");
++        const std::string url = find_source_url(list, config.spotify_source);
++        if (url.empty()) return failed(r, config.spotify_source + " not found in the amp's sources");
++        play_path = "/Play?url=" + url_encode_component(url_decode(url));
++    }
++
++    const bool lower_first = volume.db > config.source_safe_db;  // never raise on a switch
++    r.has_after = true;
++    r.after_db = lower_first ? config.source_safe_db : volume.db;
++    if (!live) {
++        r.outcome = Outcome::DryRun;
++        r.message = "dry-run";
++        return r;
++    }
++    std::string body;
++    if (lower_first && !write(amp, "/Volume?abs_db=" + fmt_db(config.source_safe_db), &r, &body))
++        return failed(r, "no reply lowering volume; source not switched");
++    if (!write(amp, play_path, &r, &body)) return failed(r, "no reply switching source (not retried)");
++    r.outcome = Outcome::Done;
++    return r;
++}
++
++}  // namespace
++
++Command plan_command(Action action, const Config& config) {
++    switch (action) {
++        case Action::VolumeUp: return {CommandKind::VolumeStep, config.step_db};
++        case Action::VolumeDown: return {CommandKind::VolumeStep, -config.step_db};
++        case Action::MuteToggle: return {CommandKind::MuteToggle, 0};
++        case Action::BrightnessDown: return {CommandKind::SourceOptical, 0};
++        case Action::BrightnessUp: return {CommandKind::SourceSpotify, 0};
++        default: return {CommandKind::Ignore, 0};
++    }
++}
++
++ExecResult execute(const Command& command, const Config& config, AmpTransport& amp, bool live) {
++    ExecResult r;
++    r.kind = command.kind;
++    std::string error, body;
++    VolumeInfo volume;
++
++    switch (command.kind) {
++        case CommandKind::Ignore:
++            r.outcome = Outcome::Ignored;
++            return r;
++
++        case CommandKind::VolumeStep: {
++            if (!read_volume(amp, &volume, &error)) return failed(r, error);
++            r.has_before = true;
++            r.before_db = volume.db;
++            const double planned = volume.db + command.step_db;
++            if (command.step_db > 0 && planned > config.max_db) {
++                r.outcome = Outcome::Refused;
++                r.cap_blocked = true;
++                r.message = "max " + fmt_db(config.max_db) + " dB";
++                return r;
++            }
++            r.has_after = true;
++            r.after_db = planned;
++            if (!live) {
++                r.outcome = Outcome::DryRun;
++                r.message = "dry-run";
++                return r;
++            }
++            if (!write(amp, "/Volume?db=" + fmt_db(command.step_db), &r, &body))
++                return failed(r, "no reply from amp (not retried)");
++            const VolumeInfo confirmed = parse_volume(body);
++            if (confirmed.ok) r.after_db = confirmed.db;
++            r.outcome = Outcome::Done;
++            return r;
++        }
++
++        case CommandKind::MuteToggle: {
++            // Only the mute state matters here (unmuting restores the pre-mute level), so a muted amp
++            // without muteDb can still be unmuted.
++            if (!amp.get("/Volume", &body)) return failed(r, "couldn't read the amp volume");
++            volume = parse_volume(body);
++            if (!volume.ok) return failed(r, "amp volume unreadable");
++            r.has_before = true;
++            r.before_db = volume.mute && volume.has_mute_db ? volume.mute_db : volume.db;
++            r.mute_after = !volume.mute;
++            if (!live) {
++                r.outcome = Outcome::DryRun;
++                r.message = "dry-run";
++                return r;
++            }
++            if (!write(amp, std::string("/Volume?mute=") + (r.mute_after ? "1" : "0"), &r, &body))
++                return failed(r, "no reply from amp (not retried)");
++            r.outcome = Outcome::Done;
++            return r;
++        }
++
++        case CommandKind::SourceOptical:
++        case CommandKind::SourceSpotify:
++            return switch_source(command, config, amp, live, r);
++    }
++    return r;
++}
++
++bool event_is_stale(uint32_t event_ms, uint32_t now_ms, uint32_t max_age_ms) {
++    return static_cast<uint32_t>(now_ms - event_ms) >= max_age_ms;
++}
++
++std::string find_source_url(const std::string& xml, const std::string& name) {
++    const std::string wanted = lower(name);
++    std::string found;
++    int matches = 0;
++    size_t pos = 0;
++    while ((pos = xml.find("<item ", pos)) != std::string::npos) {
++        const size_t end = xml.find('>', pos);
++        if (end == std::string::npos) break;
++        const std::string tag = xml.substr(pos, end - pos);
++        std::string text, url;
++        if (attr(tag, "text", &text) && attr(tag, "URL", &url) && !url.empty() && lower(text) == wanted) {
++            found = url;
++            matches++;
++        }
++        pos = end;
++    }
++    return matches == 1 ? found : "";
++}
++
++std::string url_decode(const std::string& in) {
++    std::string out;
++    for (size_t i = 0; i < in.size(); ++i) {
++        if (in[i] == '%' && i + 2 < in.size() && std::isxdigit(static_cast<unsigned char>(in[i + 1])) &&
++            std::isxdigit(static_cast<unsigned char>(in[i + 2]))) {
++            out += static_cast<char>(std::stoi(in.substr(i + 1, 2), nullptr, 16));
++            i += 2;
++        } else {
++            out += in[i];
++        }
++    }
++    return out;
++}
++
++std::string url_encode_component(const std::string& in) {
++    static const char* hex = "0123456789ABCDEF";
++    std::string out;
++    for (const char ch : in) {
++        const unsigned char c = static_cast<unsigned char>(ch);
++        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
++            out += static_cast<char>(c);
++        } else {
++            out += '%';
++            out += hex[c >> 4];
++            out += hex[c & 0x0F];
++        }
++    }
++    return out;
++}
++
++const char* outcome_name(Outcome outcome) {
++    switch (outcome) {
++        case Outcome::Ignored: return "ignored";
++        case Outcome::DryRun: return "dry_run";
++        case Outcome::Done: return "done";
++        case Outcome::Refused: return "refused";
++        case Outcome::Failed: return "failed";
++    }
++    return "unknown";
++}
++
++const char* command_name(CommandKind kind) {
++    switch (kind) {
++        case CommandKind::Ignore: return "ignore";
++        case CommandKind::VolumeStep: return "volume_step";
++        case CommandKind::MuteToggle: return "mute_toggle";
++        case CommandKind::SourceOptical: return "source_optical";
++        case CommandKind::SourceSpotify: return "source_spotify";
++    }
++    return "unknown";
++}
++
++}  // namespace knob
+diff --git a/firmware/lib/knob_core/src/amp_policy.h b/firmware/lib/knob_core/src/amp_policy.h
+new file mode 100644
+index 0000000..e3ec8f0
+--- /dev/null
++++ b/firmware/lib/knob_core/src/amp_policy.h
+@@ -0,0 +1,61 @@
++// Knob action -> amplifier command, and the guarded executor. Portable; HTTP sits behind AmpTransport.
++//
++// Safety contract (mirrors scripts/bluos_daemon.py + bluos_volume_step.py, tightened):
++//  - every volume step and mute toggle starts with a fresh /Volume read; unreadable -> refuse (fail closed)
++//  - an increase that would exceed max_db is refused; decreases are always allowed
++//  - a source switch never raises the volume: it lowers to source_safe_db first when above it, then switches
++//  - a write whose response is lost is reported as failed and never retried (it may have applied)
++//  - dry-run performs the reads and the safety checks but no writes
++#pragma once
++
++#include <cstdint>
++#include <string>
++
++#include "config.h"
++#include "decoder.h"
++
++namespace knob {
++
++class AmpTransport {
++   public:
++    virtual ~AmpTransport() = default;
++    // HTTP GET of `path` (e.g. "/Volume?db=1"); false when no complete 200 response arrived.
++    virtual bool get(const std::string& path, std::string* body) = 0;
++};
++
++enum class CommandKind { Ignore, VolumeStep, MuteToggle, SourceOptical, SourceSpotify };
++
++struct Command {
++    CommandKind kind = CommandKind::Ignore;
++    double step_db = 0;
++};
++
++enum class Outcome { Ignored, DryRun, Done, Refused, Failed };
++
++struct ExecResult {
++    Outcome outcome = Outcome::Ignored;
++    CommandKind kind = CommandKind::Ignore;
++    std::string message;   // plain words for screen/serial
++    bool has_before = false;
++    double before_db = 0;
++    bool has_after = false;
++    double after_db = 0;   // planned (dry-run) or confirmed
++    bool cap_blocked = false;
++    bool mute_after = false;
++    int writes = 0;        // write requests attempted
++};
++
++Command plan_command(Action action, const Config& config);
++ExecResult execute(const Command& command, const Config& config, AmpTransport& amp, bool live);
++
++bool event_is_stale(uint32_t event_ms, uint32_t now_ms, uint32_t max_age_ms);
++
++// Exact (case-insensitive) match on <item text=...> in /RadioBrowse?service=Capture; "" when absent or ambiguous.
++std::string find_source_url(const std::string& radiobrowse_xml, const std::string& name);
++std::string url_decode(const std::string& in);
++std::string url_encode_component(const std::string& in);
++
++const char* outcome_name(Outcome outcome);
++const char* command_name(CommandKind kind);
++
++}  // namespace knob
+diff --git a/firmware/lib/knob_core/src/bluos_xml.cpp b/firmware/lib/knob_core/src/bluos_xml.cpp
+index c48302b..3889a53 100644
+--- a/firmware/lib/knob_core/src/bluos_xml.cpp
++++ b/firmware/lib/knob_core/src/bluos_xml.cpp
+@@ -96,6 +96,8 @@ VolumeInfo parse_volume(const std::string& xml) {
+     std::string db, mute;
+     if (!attribute(xml, root, "db", &db) || !parse_finite(db, &info.db)) return info;
+     info.mute = attribute(xml, root, "mute", &mute) && mute == "1";
++    std::string mute_db;
++    info.has_mute_db = attribute(xml, root, "muteDb", &mute_db) && parse_finite(mute_db, &info.mute_db);
+     const size_t text_start = xml.find('>', root);
+     const size_t text_end = xml.find("</volume>", text_start);
+     double level = 0;
+diff --git a/firmware/lib/knob_core/src/bluos_xml.h b/firmware/lib/knob_core/src/bluos_xml.h
+index 79cef74..61178d0 100644
+--- a/firmware/lib/knob_core/src/bluos_xml.h
++++ b/firmware/lib/knob_core/src/bluos_xml.h
+@@ -9,6 +9,8 @@ struct VolumeInfo {
+     bool ok = false;  // false when db is missing or not a finite number
+     double db = 0;
+     bool mute = false;
++    bool has_mute_db = false;  // BluOS sends muteDb only while muted: the real (unmuted) level
++    double mute_db = 0;
+     int level = -1;
+ };
+ 
+diff --git a/firmware/src/amp_control.cpp b/firmware/src/amp_control.cpp
+new file mode 100644
+index 0000000..4640850
+--- /dev/null
++++ b/firmware/src/amp_control.cpp
+@@ -0,0 +1,132 @@
++#include "amp_control.h"
++
++#include <Arduino.h>
++#include <HTTPClient.h>
++#include <WiFi.h>
++#include <freertos/queue.h>
++#include <freertos/semphr.h>
++
++#include <atomic>
++#include <string>
++
++#include "config_store.h"
++
++namespace {
++
++constexpr uint32_t kMaxEventAgeMs = 1000;
++constexpr uint32_t kHttpTimeoutMs = 2000;
++constexpr size_t kQueueDepth = 8;
++
++struct Pending {
++    knob::Action action;
++    uint32_t event_ms;
++    uint32_t generation;
++};
++
++class HttpAmp : public knob::AmpTransport {
++   public:
++    HttpAmp(const std::string& host, int port) : base_("http://" + host + ":" + std::to_string(port)) {}
++    bool get(const std::string& path, std::string* body) override {
++        if (WiFi.status() != WL_CONNECTED) return false;
++        HTTPClient http;
++        http.setConnectTimeout(kHttpTimeoutMs);
++        http.setTimeout(kHttpTimeoutMs);
++        if (!http.begin((base_ + path).c_str())) return false;
++        const int code = http.GET();
++        if (code != 200) {
++            http.end();
++            return false;
++        }
++        *body = http.getString().c_str();
++        http.end();
++        return true;
++    }
++
++   private:
++    std::string base_;
++};
++
++knob::Config g_config;
++HttpAmp* g_amp = nullptr;
++QueueHandle_t g_queue = nullptr;
++SemaphoreHandle_t g_lock = nullptr;
++std::atomic<bool> g_live{false};  // restored from NVS by control_start
++std::atomic<uint32_t> g_generation{0};
++std::atomic<uint32_t> g_dropped{0};
++ControlResult g_last;
++
++std::string json_safe(const std::string& in) {
++    std::string out;
++    for (const char c : in) out += (c == '"' || c == '\\' || static_cast<unsigned char>(c) < 0x20) ? '?' : c;
++    return out;
++}
++
++void control_task(void*) {
++    Pending p;
++    for (;;) {
++        if (xQueueReceive(g_queue, &p, portMAX_DELAY) != pdTRUE) continue;
++        const uint32_t now = millis();
++        if (p.generation != g_generation || knob::event_is_stale(p.event_ms, now, kMaxEventAgeMs)) {
++            g_dropped++;
++            Serial.printf("{\"control\":\"dropped\",\"action\":\"%s\",\"age_ms\":%lu}\n", knob::action_name(p.action),
++                          static_cast<unsigned long>(now - p.event_ms));
++            continue;
++        }
++        const bool live = g_live;
++        const knob::ExecResult r = knob::execute(knob::plan_command(p.action, g_config), g_config, *g_amp, live);
++        Serial.printf(
++            "{\"control\":\"%s\",\"command\":\"%s\",\"live\":%d,\"before_db\":%s,\"after_db\":%s,\"cap\":%d,"
++            "\"writes\":%d,\"message\":\"%s\"}\n",
++            knob::outcome_name(r.outcome), knob::command_name(r.kind), live,
++            r.has_before ? String(r.before_db, 1).c_str() : "null", r.has_after ? String(r.after_db, 1).c_str() : "null",
++            r.cap_blocked, r.writes, json_safe(r.message).c_str());
++        xSemaphoreTake(g_lock, portMAX_DELAY);
++        g_last.valid = true;
++        g_last.at_ms = millis();
++        g_last.result = r;
++        xSemaphoreGive(g_lock);
++    }
++}
++
++}  // namespace
++
++void control_start(const knob::Config& config) {
++    g_config = config;
++    g_live = live_load();
++    g_amp = new HttpAmp(config.host, config.port);
++    g_queue = xQueueCreate(kQueueDepth, sizeof(Pending));
++    g_lock = xSemaphoreCreateMutex();
++    xTaskCreatePinnedToCore(control_task, "control", 8192, nullptr, 2, nullptr, 1);
++}
++
++void control_submit(knob::Action action, uint32_t event_ms) {
++    if (g_queue == nullptr) return;
++    if (knob::plan_command(action, g_config).kind == knob::CommandKind::Ignore) return;
++    const Pending p{action, event_ms, g_generation};
++    if (xQueueSend(g_queue, &p, 0) != pdTRUE) g_dropped++;
++}
++
++void control_flush() {
++    g_generation++;
++    if (g_queue != nullptr) xQueueReset(g_queue);
++}
++
++void control_set_live(bool live) {
++    control_flush();
++    g_live = live;
++    const bool saved = live_save(live);
++    Serial.printf("{\"live\":%s,\"remembered\":%s}\n", live ? "true" : "false", saved ? "true" : "false");
++}
++
++bool control_live() { return g_live; }
++
++ControlResult control_last() {
++    ControlResult copy;
++    if (g_lock == nullptr) return copy;
++    xSemaphoreTake(g_lock, portMAX_DELAY);
++    copy = g_last;
++    xSemaphoreGive(g_lock);
++    return copy;
++}
++
++uint32_t control_dropped() { return g_dropped; }
+diff --git a/firmware/src/amp_control.h b/firmware/src/amp_control.h
+new file mode 100644
+index 0000000..e8dee2c
+--- /dev/null
++++ b/firmware/src/amp_control.h
+@@ -0,0 +1,25 @@
++// Runs knob commands against the amp on its own task, through the guarded executor in knob_core.
++#pragma once
++
++#include <cstdint>
++
++#include "amp_policy.h"
++#include "config.h"
++#include "decoder.h"
++
++struct ControlResult {
++    bool valid = false;
++    uint32_t at_ms = 0;
++    knob::ExecResult result;
++};
++
++// config is copied: control settings take effect after a reboot. Restores the remembered live flag.
++void control_start(const knob::Config& config);
++// Queue a gesture; dropped when stale, when the queue is full, or when superseded by a mode/link change.
++void control_submit(knob::Action action, uint32_t event_ms);
++// Invalidate everything queued (mode change, knob link change).
++void control_flush();
++void control_set_live(bool live);
++bool control_live();
++ControlResult control_last();
++uint32_t control_dropped();
+diff --git a/firmware/src/config_store.cpp b/firmware/src/config_store.cpp
+index a8da895..a4d11eb 100644
+--- a/firmware/src/config_store.cpp
++++ b/firmware/src/config_store.cpp
+@@ -36,3 +36,19 @@ bool config_save(const knob::Config& c) {
+     p.end();
+     return ok;
+ }
++
++bool live_load() {
++    Preferences p;
++    p.begin(kNamespace, true);
++    const bool live = p.getBool("live", false);
++    p.end();
++    return live;
++}
++
++bool live_save(bool live) {
++    Preferences p;
++    if (!p.begin(kNamespace, false)) return false;
++    const bool ok = p.putBool("live", live) == 1;
++    p.end();
++    return ok;
++}
+diff --git a/firmware/src/config_store.h b/firmware/src/config_store.h
+index ac104c5..3760ce0 100644
+--- a/firmware/src/config_store.h
++++ b/firmware/src/config_store.h
+@@ -5,3 +5,7 @@
+ 
+ void config_load(knob::Config& config);
+ bool config_save(const knob::Config& config);
++
++// Live amp control, remembered across restarts (owner decision 2026-11-17). Defaults to false.
++bool live_load();
++bool live_save(bool live);
+diff --git a/firmware/src/display_ui.cpp b/firmware/src/display_ui.cpp
+index 37f9a30..c7dec73 100644
+--- a/firmware/src/display_ui.cpp
++++ b/firmware/src/display_ui.cpp
+@@ -54,9 +54,12 @@ std::string source_text(const AmpState& amp) {
+ }
+ 
+ std::string render_key(const UiState& s) {
+-    char buf[32];
+-    snprintf(buf, sizeof(buf), "|%d|%d|%d|%d|%d|%d", static_cast<int>(s.link), static_cast<int>(s.wifi),
+-             s.amp.reachable, s.amp.volume.mute, static_cast<int>(s.last_action), s.show_action);
++    char buf[96];
++    const knob::ExecResult& r = s.control.result;
++    snprintf(buf, sizeof(buf), "|%d|%d|%d|%d|%d|%d|%d|%d|%lu|%d|%.1f", static_cast<int>(s.link),
++             static_cast<int>(s.wifi), s.amp.reachable, s.amp.volume.mute, static_cast<int>(s.last_action),
++             s.show_action, s.live, s.show_result, static_cast<unsigned long>(s.control.at_ms),
++             static_cast<int>(r.outcome), r.after_db);
+     return db_text(s.amp) + source_text(s.amp) + s.fault + buf;
+ }
+ 
+@@ -95,11 +98,50 @@ void ui_render(const UiState& s) {
+     d.setTextDatum(textdatum_t::middle_right);
+     d.fillCircle(w - 8, 9, 5, knob_colour(s.link));
+     d.drawString("Knob", w - 18, 9);
++    d.setTextDatum(textdatum_t::middle_center);
++    d.setTextColor(s.live ? TFT_BLACK : TFT_BLACK, s.live ? TFT_RED : TFT_YELLOW);
++    const char* badge = s.live ? " LIVE " : " DRY-RUN ";
++    const int bw = d.textWidth(badge);
++    d.fillRoundRect(w / 2 - bw / 2 - 2, 1, bw + 4, 17, 3, s.live ? TFT_RED : TFT_YELLOW);
++    d.drawString(badge, w / 2, 9);
+ 
+     // Centre: big dB (or the knob action briefly, or MUTED).
+     const int cy = h / 2 - (small ? 0 : 2);
+     d.setTextDatum(textdatum_t::middle_center);
+-    if (s.show_action && s.last_action != knob::Action::NoOp && s.last_action != knob::Action::Unknown) {
++    const knob::ExecResult& r = s.control.result;
++    if (s.show_result && r.kind == knob::CommandKind::VolumeStep && r.has_before) {
++        // Big dB with a bar against the cap; red MAX when an increase was refused.
++        const double shown = r.has_after ? r.after_db : r.before_db;
++        char buf[16];
++        snprintf(buf, sizeof(buf), "%.1f", shown);
++        std::string db(buf);
++        if (db.size() > 2 && db.compare(db.size() - 2, 2, ".0") == 0) db.resize(db.size() - 2);
++        d.setFont(small ? &fonts::Font4 : &fonts::Font7);
++        d.setTextColor(r.cap_blocked ? TFT_RED : TFT_WHITE, TFT_BLACK);
++        d.drawString(db.c_str(), w / 2, cy - (small ? 4 : 8));
++        const int bx = 10, bw = w - 20, by = cy + (small ? 12 : 26), bh = small ? 5 : 8;
++        const double floor_db = -80;
++        double frac = (shown - floor_db) / (s.max_db - floor_db);
++        frac = frac < 0 ? 0 : (frac > 1 ? 1 : frac);
++        d.drawRect(bx, by, bw, bh, TFT_DARKGREY);
++        d.fillRect(bx + 1, by + 1, static_cast<int>((bw - 2) * frac), bh - 2, r.cap_blocked ? TFT_RED : TFT_GREEN);
++        if (r.cap_blocked) {
++            d.setFont(&fonts::Font2);
++            d.setTextColor(TFT_RED, TFT_BLACK);
++            d.drawString((std::string("MAX ") + r.message.substr(4)).c_str(), w / 2, by + bh + 10);
++        }
++    } else if (s.show_result && r.kind == knob::CommandKind::MuteToggle && r.outcome != knob::Outcome::Failed) {
++        d.setFont(&fonts::Font4);
++        d.setTextSize(small ? 1 : 2);
++        d.setTextColor(TFT_ORANGE, TFT_BLACK);
++        d.drawString(r.mute_after ? "MUTED" : "UNMUTED", w / 2, cy);
++    } else if (s.show_result && (r.kind == knob::CommandKind::SourceOptical || r.kind == knob::CommandKind::SourceSpotify) &&
++               r.outcome != knob::Outcome::Failed) {
++        d.setFont(&fonts::Font4);
++        d.setTextSize(small ? 1 : 2);
++        d.setTextColor(TFT_CYAN, TFT_BLACK);
++        d.drawString(r.kind == knob::CommandKind::SourceOptical ? "Optical" : "Spotify", w / 2, cy);
++    } else if (s.show_action && s.last_action != knob::Action::NoOp && s.last_action != knob::Action::Unknown) {
+         d.setFont(&fonts::Font4);
+         d.setTextSize(small ? 1 : 2);
+         d.setTextColor(TFT_CYAN, TFT_BLACK);
+@@ -139,9 +181,12 @@ void ui_render(const UiState& s) {
+     if (!s.fault.empty()) {
+         d.setTextColor(TFT_RED, TFT_BLACK);
+         d.drawString(s.fault.substr(0, small ? 22 : 34).c_str(), w / 2, h - 1);
+-    } else {
+-        d.setTextColor(TFT_DARKGREY, TFT_BLACK);
+-        d.drawString("read-only", w / 2, h - 1);
++    } else if (s.show_result && r.outcome == knob::Outcome::Failed) {
++        d.setTextColor(TFT_RED, TFT_BLACK);
++        d.drawString(r.message.substr(0, small ? 22 : 34).c_str(), w / 2, h - 1);
++    } else if (s.show_result && r.outcome == knob::Outcome::DryRun) {
++        d.setTextColor(TFT_YELLOW, TFT_BLACK);
++        d.drawString("dry-run: amp not changed", w / 2, h - 1);
+     }
+     d.endWrite();
+ }
+diff --git a/firmware/src/display_ui.h b/firmware/src/display_ui.h
+index 6cb753d..05b292f 100644
+--- a/firmware/src/display_ui.h
++++ b/firmware/src/display_ui.h
+@@ -5,6 +5,7 @@
+ 
+ #include <string>
+ 
++#include "amp_control.h"
+ #include "ble_knob.h"
+ #include "bluos_client.h"
+ #include "decoder.h"
+@@ -21,6 +22,10 @@ struct UiState {
+     bool show_action;         // briefly after a knob event
+     bool dimmed;
+     uint32_t events;
++    bool live;                // session-only live amp control
++    ControlResult control;    // last executed command
++    bool show_result;         // briefly after a command
++    double max_db;
+ };
+ 
+ void ui_begin();
+diff --git a/firmware/src/main.cpp b/firmware/src/main.cpp
+index 307d6b9..fa72d4d 100644
+--- a/firmware/src/main.cpp
++++ b/firmware/src/main.cpp
+@@ -2,6 +2,7 @@
+ #include <M5Unified.h>
+ #include <WiFi.h>
+ 
++#include "amp_control.h"
+ #include "ble_knob.h"
+ #include "bluos_client.h"
+ #include "config.h"
+@@ -17,6 +18,9 @@ constexpr size_t kQueueDepth = 16;
+ constexpr const char* kKnobNameHint = "ANTICATER";
+ constexpr uint32_t kDimAfterMs = 30000;
+ constexpr uint32_t kActionShowMs = 1500;
++constexpr uint32_t kResultShowMs = 2500;
++constexpr const char* kLivePhrase = "I understand this controls the amplifier";
++KnobLink g_prev_link = KnobLink::Idle;
+ 
+ QueueHandle_t g_events = nullptr;
+ BleKnob g_knob;
+@@ -93,6 +97,7 @@ void handle_event(const KnobEvent& ev) {
+     g_ui.last_action = decoded.action;
+     g_action_at = millis();
+     g_dimmer.touch(g_action_at);
++    control_submit(decoded.action, ev.at_ms);
+     Serial.printf("{\"seq\":%lu,\"action\":\"%s\",\"raw\":\"%s\",\"usage\":\"0x%04x\",\"t_ms\":%lu}\n",
+                   static_cast<unsigned long>(g_ui.events), knob::action_name(decoded.action),
+                   hex(ev.data, ev.len).c_str(), decoded.usage, static_cast<unsigned long>(ev.at_ms));
+@@ -149,6 +154,17 @@ void handle_command(const String& line) {
+         } else {
+             Serial.printf("{\"set\":\"%s\",\"ok\":true}\n", json_escape(key).c_str());  // value never echoed
+         }
++    } else if (cmd == "live off") {
++        control_set_live(false);
++    } else if (cmd.rfind("live on", 0) == 0) {
++        const std::string phrase = cmd.size() > 8 ? cmd.substr(8) : "";
++        if (!g_config_error.empty()) {
++            Serial.printf("{\"live\":false,\"error\":\"%s\"}\n", json_escape(g_config_error).c_str());
++        } else if (phrase != kLivePhrase) {
++            Serial.printf("{\"live\":false,\"error\":\"type: live on %s\"}\n", kLivePhrase);
++        } else {
++            control_set_live(true);
++        }
+     } else if (cmd == "show") {
+         print_config();
+     } else if (cmd == "reboot") {
+@@ -177,18 +193,19 @@ void handle_command(const String& line) {
+         Serial.printf(
+             "{\"board\":\"%s\",\"knob\":\"%s\",\"peer\":\"%s\",\"wifi\":\"%s\",\"ip\":\"%s\",\"rssi\":%d,"
+             "\"amp\":\"%s\",\"db\":%.1f,\"mute\":%d,\"source\":\"%s\",\"amp_failures\":%lu,\"fault\":\"%s\","
+-            "\"events\":%lu,\"dropped\":%lu,\"reconnects\":%lu,\"free_heap\":%lu,\"min_free_heap\":%lu}\n",
++            "\"events\":%lu,\"dropped\":%lu,\"reconnects\":%lu,\"live\":%d,\"control_dropped\":%lu,"
++            "\"free_heap\":%lu,\"min_free_heap\":%lu}\n",
+             board_name(), knob_link_name(g_knob.link()), esc(g_knob.peer_name()).c_str(),
+             WiFi.status() == WL_CONNECTED ? "connected" : "down", WiFi.localIP().toString().c_str(),
+             WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0, amp.reachable ? "ok" : "unreachable", amp.volume.db,
+             amp.volume.mute, json_escape(amp.status.title).c_str(), static_cast<unsigned long>(amp.failures),
+             json_escape(g_ui.fault).c_str(), static_cast<unsigned long>(g_ui.events),
+             static_cast<unsigned long>(g_knob.overflow_count()), static_cast<unsigned long>(g_knob.reconnects()),
+-            static_cast<unsigned long>(ESP.getFreeHeap()), static_cast<unsigned long>(ESP.getMinFreeHeap()));
++            control_live(), static_cast<unsigned long>(control_dropped()), static_cast<unsigned long>(ESP.getFreeHeap()), static_cast<unsigned long>(ESP.getMinFreeHeap()));
+     } else if (!cmd.empty()) {
+         Serial.println(
+             "{\"error\":\"unknown command\",\"commands\":[\"status\",\"show\",\"set <key> <value>\",\"reboot\","
+-            "\"scan\",\"wifi scan\",\"bonds clear\"]}");
++            "\"scan\",\"wifi scan\",\"bonds clear\",\"live on <phrase>\",\"live off\"]}");
+     }
+ }
+ 
+@@ -225,15 +242,22 @@ void setup() {
+     M5.begin(cfg);
+     g_events = xQueueCreate(kQueueDepth, sizeof(KnobEvent));
+     g_ui.board = board_name();
++    g_ui.max_db = -24;
+     g_ui.last_action = knob::Action::NoOp;
+     config_load(g_config);
++    g_ui.max_db = g_config.max_db;
+     ui_begin();
+     Serial.printf("{\"boot\":\"bluos-knob\",\"board\":\"%s\",\"free_heap\":%lu}\n", g_ui.board,
+                   static_cast<unsigned long>(ESP.getFreeHeap()));
+     g_knob.begin(g_events, kKnobNameHint);
+     wifi_register_events();
+     wifi_begin();
+-    if (g_config_error.empty()) bluos_start(g_config.host, g_config.port);
++    if (g_config_error.empty()) {
++        bluos_start(g_config.host, g_config.port);
++        control_start(g_config);
++    }
++    Serial.printf("{\"live\":%s,\"note\":\"remembered across restarts; live off to stop\"}\n",
++                  control_live() ? "true" : "false");
+     g_dimmer.touch(millis());
+ }
+ 
+@@ -265,6 +289,14 @@ void loop() {
+     }
+ 
+     g_ui.link = g_knob.link();
++    if (g_ui.link != g_prev_link) {  // queued gestures never survive a knob reconnect
++        control_flush();
++        g_prev_link = g_ui.link;
++    }
++    g_ui.live = control_live();
++    g_ui.control = control_last();
++    g_ui.show_result = g_ui.control.valid && (now - g_ui.control.at_ms) < kResultShowMs;
++    if (g_ui.show_result) g_dimmer.touch(now);
+     g_ui.wifi = !g_config_error.empty() ? WifiLink::NotConfigured
+                 : WiFi.status() == WL_CONNECTED ? WifiLink::Connected
+                                                 : WifiLink::Connecting;
+diff --git a/firmware/test/test_amp_policy/test_amp_policy.cpp b/firmware/test/test_amp_policy/test_amp_policy.cpp
+new file mode 100644
+index 0000000..37baf08
+--- /dev/null
++++ b/firmware/test/test_amp_policy/test_amp_policy.cpp
+@@ -0,0 +1,350 @@
++#include <unity.h>
++
++#include <cstdio>
++#include <cstdlib>
++#include <set>
++#include <string>
++#include <vector>
++
++#include "amp_policy.h"
++
++using knob::Action;
++using knob::CommandKind;
++using knob::Outcome;
++
++// Captured from the NAD M33 (2026-11-17), trimmed to two entries; full copy in tests/fixtures/bluos/radiobrowse_capture.xml.
++static const char* kRadioBrowse =
++    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<radiotime service=\"Capture\">\n"
++    "  <item text=\"Optical 2\" id=\"xdynamic-Source2\" type=\"audio\" inputType=\"spdif\" "
++    "URL=\"Capture%3Ahw%3Aimxnadadc%2C0%2F1%2F25%2F2%3Fid%3Dxdynamic-Source2\"></item>\n"
++    "  <item text=\"Spotify\" id=\"Spotify\" type=\"audio\" URL=\"Spotify%3Aplay\" serviceType=\"CloudService\" "
++    "image=\"/Sources/images/SpotifyIcon.png\"></item>\n</radiotime>";
++
++// Behaviour fake of a BluOS player: holds dB/mute/source and answers like the real HTTP API.
++class FakeAmp : public knob::AmpTransport {
++   public:
++    double db = -40;
++    bool mute = false;
++    std::string source = "optical-1";
++    bool volume_readable = true;
++    bool mute_db_reported = true;
++    std::set<std::string> unreachable;   // paths that fail with no effect
++    std::set<std::string> lose_response; // paths that apply but whose response is lost
++    std::vector<std::string> requests;
++
++    bool get(const std::string& path, std::string* body) override {
++        requests.push_back(path);
++        if (unreachable.count(path)) return false;
++        if (path.rfind("/Volume?db=", 0) == 0) db += std::atof(path.c_str() + 11);
++        else if (path.rfind("/Volume?abs_db=", 0) == 0) db = std::atof(path.c_str() + 15);
++        else if (path.rfind("/Volume?mute=", 0) == 0) mute = path.back() == '1';
++        else if (path.rfind("/Play?inputTypeIndex=", 0) == 0) source = path.substr(21);
++        else if (path.rfind("/Play?url=", 0) == 0) source = knob::url_decode(path.substr(10));
++        if (lose_response.count(path)) return false;
++        if (path == "/RadioBrowse?service=Capture") {
++            *body = kRadioBrowse;
++            return true;
++        }
++        if (path.rfind("/Volume", 0) == 0) {
++            char buf[96];
++            if (volume_readable && mute && mute_db_reported)  // real BluOS: muted reports db=-100 + muteDb
++                snprintf(buf, sizeof(buf), "<volume db=\"-100\" mute=\"1\" muteDb=\"%g\">0</volume>", db);
++            else if (volume_readable && mute)
++                snprintf(buf, sizeof(buf), "<volume db=\"-100\" mute=\"1\">0</volume>");
++            else if (volume_readable)
++                snprintf(buf, sizeof(buf), "<volume db=\"%g\" mute=\"%d\">50</volume>", db, mute ? 1 : 0);
++            else
++                snprintf(buf, sizeof(buf), "<volume mute=\"0\">50</volume>");
++            *body = buf;
++            return true;
++        }
++        *body = "<status></status>";
++        return true;
++    }
++    int writes() const {
++        int n = 0;
++        for (const auto& r : requests) n += (r != "/Volume" && r != "/RadioBrowse?service=Capture");
++        return n;
++    }
++};
++
++static knob::Config config() {
++    knob::Config c;
++    c.wifi_ssid = "x";
++    c.host = "amp";
++    c.max_db = -24;
++    c.source_safe_db = -40;
++    c.step_db = 1;
++    return c;
++}
++
++static knob::ExecResult run(Action action, FakeAmp& amp, bool live = true) {
++    const knob::Config c = config();
++    return knob::execute(knob::plan_command(action, c), c, amp, live);
++}
++
++void setUp() {}
++void tearDown() {}
++
++void given_actions_when_planned_then_match_daemon_command_table() {
++    /*
++    Test Doc:
++    - Why: The ESP32 must map gestures to the same commands as scripts/bluos_daemon.py planned_command.
++    - Contract: up/down -> +/-step_db; mute -> toggle; brightness_down -> optical; brightness_up -> Spotify; others ignored.
++    - Usage Notes: step_db comes from config (validated 0 < step <= 3).
++    - Quality Contribution: Catches swapped directions or source buttons.
++    - Worked Example: VolumeDown with step 1 -> VolumeStep(-1).
++    */
++    const knob::Config c = config();
++    TEST_ASSERT_EQUAL(CommandKind::VolumeStep, knob::plan_command(Action::VolumeUp, c).kind);
++    TEST_ASSERT_EQUAL_DOUBLE(1, knob::plan_command(Action::VolumeUp, c).step_db);
++    TEST_ASSERT_EQUAL_DOUBLE(-1, knob::plan_command(Action::VolumeDown, c).step_db);
++    TEST_ASSERT_EQUAL(CommandKind::MuteToggle, knob::plan_command(Action::MuteToggle, c).kind);
++    TEST_ASSERT_EQUAL(CommandKind::SourceOptical, knob::plan_command(Action::BrightnessDown, c).kind);
++    TEST_ASSERT_EQUAL(CommandKind::SourceSpotify, knob::plan_command(Action::BrightnessUp, c).kind);
++    TEST_ASSERT_EQUAL(CommandKind::Ignore, knob::plan_command(Action::Unknown, c).kind);
++    TEST_ASSERT_EQUAL(CommandKind::Ignore, knob::plan_command(Action::NoOp, c).kind);
++}
++
++void given_volume_below_cap_when_stepping_up_then_reads_fresh_then_writes_one_step() {
++    /*
++    Test Doc:
++    - Why: Normal use: a knob turn nudges the amp by exactly one step.
++    - Contract: execute reads /Volume first, then sends /Volume?db=<step>; result carries before/after.
++    - Usage Notes: The fresh read is the safety basis; cached poll data is never used.
++    - Quality Contribution: Catches skipped reads or double writes.
++    - Worked Example: amp -40, step +1 -> requests [/Volume, /Volume?db=1, ...], after -39.
++    */
++    FakeAmp amp;
++    const knob::ExecResult r = run(Action::VolumeUp, amp);
++    TEST_ASSERT_EQUAL(Outcome::Done, r.outcome);
++    TEST_ASSERT_EQUAL_STRING("/Volume", amp.requests.at(0).c_str());
++    TEST_ASSERT_EQUAL_STRING("/Volume?db=1", amp.requests.at(1).c_str());
++    TEST_ASSERT_EQUAL_INT(1, amp.writes());
++    TEST_ASSERT_EQUAL_DOUBLE(-39, amp.db);
++    TEST_ASSERT_EQUAL_DOUBLE(-40, r.before_db);
++}
++
++void given_volume_at_or_near_cap_when_stepping_up_then_refused_without_write() {
++    /*
++    Test Doc:
++    - Why: Safety-first: the knob must never push the amp past max_db (default -24 dB).
++    - Contract: if current + step > max_db the increase is refused, cap_blocked is set, and nothing is written.
++    - Usage Notes: Mirrors assert_safe_step in scripts/bluos_volume_step.py.
++    - Quality Contribution: Catches the core loudness guard regressing.
++    - Worked Example: amp -24 +1 -> refused; amp -24.5 (changed in the app since the last poll) +1 -> refused.
++    */
++    FakeAmp amp;
++    amp.db = -24;
++    knob::ExecResult r = run(Action::VolumeUp, amp);
++    TEST_ASSERT_EQUAL(Outcome::Refused, r.outcome);
++    TEST_ASSERT_TRUE(r.cap_blocked);
++    TEST_ASSERT_EQUAL_INT(0, amp.writes());
++    amp.db = -24.5;
++    r = run(Action::VolumeUp, amp);
++    TEST_ASSERT_EQUAL(Outcome::Refused, r.outcome);
++    TEST_ASSERT_EQUAL_DOUBLE(-24.5, amp.db);
++}
++
++void given_volume_above_cap_when_stepping_down_then_allowed() {
++    /*
++    Test Doc:
++    - Why: If the amp is already loud (set elsewhere), the knob must still be able to turn it down.
++    - Contract: decreases are never refused by the cap.
++    - Usage Notes: Matches Python, where the check applies only when step_db > 0.
++    - Quality Contribution: Catches a cap that locks the user out of turning it down.
++    - Worked Example: amp -20, step -1 -> done, -21.
++    */
++    FakeAmp amp;
++    amp.db = -20;
++    const knob::ExecResult r = run(Action::VolumeDown, amp);
++    TEST_ASSERT_EQUAL(Outcome::Done, r.outcome);
++    TEST_ASSERT_EQUAL_DOUBLE(-21, amp.db);
++}
++
++void given_unreadable_volume_when_stepping_or_muting_then_fail_closed_without_write() {
++    /*
++    Test Doc:
++    - Why: Plan review finding 1: unknown current volume must never default to a number.
++    - Contract: if /Volume fails or lacks a valid db, the step or mute is Failed and nothing is written.
++    - Usage Notes: The message is shown on screen.
++    - Quality Contribution: Catches a 0 dB default turning a step into a jump.
++    - Worked Example: /Volume unreachable -> Failed, writes 0; db attribute missing -> Failed, writes 0.
++    */
++    FakeAmp amp;
++    amp.unreachable.insert("/Volume");
++    TEST_ASSERT_EQUAL(Outcome::Failed, run(Action::VolumeUp, amp).outcome);
++    TEST_ASSERT_EQUAL(Outcome::Failed, run(Action::MuteToggle, amp).outcome);
++    TEST_ASSERT_EQUAL_INT(0, amp.writes());
++    FakeAmp garbled;
++    garbled.volume_readable = false;
++    TEST_ASSERT_EQUAL(Outcome::Failed, run(Action::VolumeDown, garbled).outcome);
++    TEST_ASSERT_EQUAL_INT(0, garbled.writes());
++}
++
++void given_dry_run_when_executing_then_reads_and_checks_but_never_writes() {
++    /*
++    Test Doc:
++    - Why: AC-07: the device boots in dry-run and must not change the amp until live is enabled.
++    - Contract: with live=false every command returns DryRun (or Refused/Failed from the checks) and performs zero writes.
++    - Usage Notes: Dry-run still shows the planned dB and the cap refusal on screen.
++    - Quality Contribution: Catches any write path that ignores the live flag.
++    - Worked Example: up at -40 -> DryRun, planned -39, amp still -40; up at -24 -> Refused (cap).
++    */
++    FakeAmp amp;
++    for (Action a : {Action::VolumeUp, Action::VolumeDown, Action::MuteToggle, Action::BrightnessDown,
++                     Action::BrightnessUp}) {
++        const knob::ExecResult r = run(a, amp, false);
++        TEST_ASSERT_EQUAL(Outcome::DryRun, r.outcome);
++    }
++    TEST_ASSERT_EQUAL_INT(0, amp.writes());
++    TEST_ASSERT_EQUAL_DOUBLE(-40, amp.db);
++    const knob::ExecResult planned = run(Action::VolumeUp, amp, false);
++    TEST_ASSERT_TRUE(planned.has_after);
++    TEST_ASSERT_EQUAL_DOUBLE(-39, planned.after_db);
++    amp.db = -24;
++    TEST_ASSERT_EQUAL(Outcome::Refused, run(Action::VolumeUp, amp, false).outcome);
++}
++
++void given_lost_write_response_when_stepping_then_failed_and_never_retried() {
++    /*
++    Test Doc:
++    - Why: Plan review finding 2: retrying a write whose response was lost can double-step the volume.
++    - Contract: a write that returns no response is reported Failed and attempted exactly once.
++    - Usage Notes: The next poll shows the real state; the user can turn again.
++    - Quality Contribution: Catches retry loops on the write path.
++    - Worked Example: /Volume?db=1 applies but its response is lost -> Failed, 1 write, amp -39 (not -38).
++    */
++    FakeAmp amp;
++    amp.lose_response.insert("/Volume?db=1");
++    const knob::ExecResult r = run(Action::VolumeUp, amp);
++    TEST_ASSERT_EQUAL(Outcome::Failed, r.outcome);
++    TEST_ASSERT_EQUAL_INT(1, amp.writes());
++    TEST_ASSERT_EQUAL_DOUBLE(-39, amp.db);
++}
++
++void given_mute_state_when_toggling_then_reads_fresh_and_flips_it() {
++    /*
++    Test Doc:
++    - Why: The toggle must invert the amp's real state, which may have been changed in the app.
++    - Contract: reads /Volume, then sends mute=1 when unmuted and mute=0 when muted.
++    - Usage Notes: Mirrors bluos_daemon.py mute_toggle.
++    - Quality Contribution: Catches a toggle based on stale local state.
++    - Worked Example: mute 0 -> /Volume?mute=1; mute 1 -> /Volume?mute=0.
++    */
++    FakeAmp amp;
++    TEST_ASSERT_EQUAL(Outcome::Done, run(Action::MuteToggle, amp).outcome);
++    TEST_ASSERT_EQUAL_STRING("/Volume?mute=1", amp.requests.back().c_str());
++    TEST_ASSERT_TRUE(amp.mute);
++    TEST_ASSERT_EQUAL(Outcome::Done, run(Action::MuteToggle, amp).outcome);
++    TEST_ASSERT_FALSE(amp.mute);
++}
++
++void given_source_switch_when_louder_than_safe_level_then_lowers_first_and_never_raises() {
++    /*
++    Test Doc:
++    - Why: Switching inputs must not blast; tightening of bluos_source.py, which set abs_db even when that raised the volume.
++    - Contract: if current > source_safe_db, set abs_db first, then switch; if already at/below, only switch.
++    - Usage Notes: source_safe_db is validated <= -24 dB.
++    - Quality Contribution: Catches the switch happening before the volume drop, and a switch that raises volume.
++    - Worked Example: -30 -> [/Volume, /Volume?abs_db=-40, /Play?inputTypeIndex=optical-2]; -50 -> no abs_db, stays -50.
++    */
++    FakeAmp amp;
++    amp.db = -30;
++    TEST_ASSERT_EQUAL(Outcome::Done, run(Action::BrightnessDown, amp).outcome);
++    TEST_ASSERT_EQUAL_STRING("/Volume?abs_db=-40", amp.requests.at(1).c_str());
++    TEST_ASSERT_EQUAL_STRING("/Play?inputTypeIndex=optical-2", amp.requests.at(2).c_str());
++    TEST_ASSERT_EQUAL_DOUBLE(-40, amp.db);
++    FakeAmp quiet;
++    quiet.db = -50;
++    TEST_ASSERT_EQUAL(Outcome::Done, run(Action::BrightnessDown, quiet).outcome);
++    TEST_ASSERT_EQUAL_DOUBLE(-50, quiet.db);
++    TEST_ASSERT_EQUAL_INT(1, quiet.writes());
++}
++
++void given_spotify_button_when_switching_then_plays_listed_url_or_fails_without_write() {
++    /*
++    Test Doc:
++    - Why: Spotify is selected via the source list's URL, like bluos_source.py find_source + play_url_parameter.
++    - Contract: url = encode(decode(item URL)); missing source -> Failed with no write.
++    - Usage Notes: Matching is exact text, case-insensitive.
++    - Quality Contribution: Catches double-encoding and silent wrong-source switches.
++    - Worked Example: URL="Spotify%3Aplay" -> /Play?url=Spotify%3Aplay.
++    */
++    FakeAmp amp;
++    amp.db = -45;
++    TEST_ASSERT_EQUAL(Outcome::Done, run(Action::BrightnessUp, amp).outcome);
++    TEST_ASSERT_EQUAL_STRING("/Play?url=Spotify%3Aplay", amp.requests.back().c_str());
++    TEST_ASSERT_EQUAL_STRING("", knob::find_source_url(kRadioBrowse, "Tidal").c_str());
++    TEST_ASSERT_EQUAL_STRING("Spotify%3Aplay", knob::find_source_url(kRadioBrowse, "spotify").c_str());
++    knob::Config c = config();
++    c.spotify_source = "Tidal";
++    FakeAmp none;
++    const knob::ExecResult r = knob::execute(knob::plan_command(Action::BrightnessUp, c), c, none, true);
++    TEST_ASSERT_EQUAL(Outcome::Failed, r.outcome);
++    TEST_ASSERT_EQUAL_INT(0, none.writes());
++}
++
++void given_event_ages_when_checked_then_old_events_are_stale() {
++    /*
++    Test Doc:
++    - Why: Plan review finding 2: gestures queued during an outage must not fire seconds later.
++    - Contract: an event is stale when now - event >= max_age (wrap-safe).
++    - Usage Notes: The app drops stale events before planning a command.
++    - Quality Contribution: Catches delayed volume changes after reconnect.
++    - Worked Example: max 1000: event 0, now 999 -> fresh; now 1000 -> stale.
++    */
++    TEST_ASSERT_FALSE(knob::event_is_stale(0, 999, 1000));
++    TEST_ASSERT_TRUE(knob::event_is_stale(0, 1000, 1000));
++    TEST_ASSERT_FALSE(knob::event_is_stale(0xFFFFFF00u, 0x00000010u, 1000));
++}
++
++void given_muted_amp_when_stepping_or_switching_then_cap_uses_the_real_unmuted_level() {
++    /*
++    Test Doc:
++    - Why: Found live on 2026-11-17: a muted BluOS player reports db="-100" (muteDb holds the real level), so
++      checking the cap against -100 would let a step go past max_db once the relative step applies.
++    - Contract: while muted, the safety basis is muteDb; muted without muteDb is Failed with no write.
++    - Usage Notes: BluOS publishes muteDb/muteVolume only while muted (Custom Integration API).
++    - Quality Contribution: Catches the muted-at-cap bypass in both the volume step and the source switch.
++    - Worked Example: muted, real -24 -> step up refused; muted, real -30 -> optical lowers to -40 first.
++    */
++    FakeAmp amp;
++    amp.db = -24;
++    amp.mute = true;
++    knob::ExecResult r = run(Action::VolumeUp, amp);
++    TEST_ASSERT_EQUAL(Outcome::Refused, r.outcome);
++    TEST_ASSERT_EQUAL_DOUBLE(-24, r.before_db);
++    TEST_ASSERT_EQUAL_INT(0, amp.writes());
++    FakeAmp loud;
++    loud.db = -30;
++    loud.mute = true;
++    TEST_ASSERT_EQUAL(Outcome::Done, run(Action::BrightnessDown, loud).outcome);
++    TEST_ASSERT_EQUAL_STRING("/Volume?abs_db=-40", loud.requests.at(1).c_str());
++    FakeAmp unknown;
++    unknown.mute = true;
++    unknown.mute_db_reported = false;
++    TEST_ASSERT_EQUAL(Outcome::Failed, run(Action::VolumeUp, unknown).outcome);
++    TEST_ASSERT_EQUAL(Outcome::Failed, run(Action::BrightnessUp, unknown).outcome);
++    TEST_ASSERT_EQUAL_INT(0, unknown.writes());
++    // Unmuting never raises above the pre-mute level, so it must always work.
++    TEST_ASSERT_EQUAL(Outcome::Done, run(Action::MuteToggle, unknown).outcome);
++    TEST_ASSERT_FALSE(unknown.mute);
++}
++
++int main() {
++    UNITY_BEGIN();
++    RUN_TEST(given_actions_when_planned_then_match_daemon_command_table);
++    RUN_TEST(given_volume_below_cap_when_stepping_up_then_reads_fresh_then_writes_one_step);
++    RUN_TEST(given_volume_at_or_near_cap_when_stepping_up_then_refused_without_write);
++    RUN_TEST(given_volume_above_cap_when_stepping_down_then_allowed);
++    RUN_TEST(given_unreadable_volume_when_stepping_or_muting_then_fail_closed_without_write);
++    RUN_TEST(given_dry_run_when_executing_then_reads_and_checks_but_never_writes);
++    RUN_TEST(given_lost_write_response_when_stepping_then_failed_and_never_retried);
++    RUN_TEST(given_mute_state_when_toggling_then_reads_fresh_and_flips_it);
++    RUN_TEST(given_source_switch_when_louder_than_safe_level_then_lowers_first_and_never_raises);
++    RUN_TEST(given_spotify_button_when_switching_then_plays_listed_url_or_fails_without_write);
++    RUN_TEST(given_event_ages_when_checked_then_old_events_are_stale);
++    RUN_TEST(given_muted_amp_when_stepping_or_switching_then_cap_uses_the_real_unmuted_level);
++    return UNITY_END();
++}
+diff --git a/firmware/test/test_bluos_xml/test_bluos_xml.cpp b/firmware/test/test_bluos_xml/test_bluos_xml.cpp
+index 8e8e948..4959683 100644
+--- a/firmware/test/test_bluos_xml/test_bluos_xml.cpp
++++ b/firmware/test/test_bluos_xml/test_bluos_xml.cpp
+@@ -100,11 +100,29 @@ void given_status_with_entities_and_no_db_when_parsed_then_decoded_and_flagged()
+     TEST_ASSERT_FALSE(knob::parse_status("<volume db=\"-3\"/>").ok);
+ }
+ 
++void given_muted_volume_response_when_parsed_then_mute_db_is_the_real_level() {
++    /*
++    Test Doc:
++    - Why: Muted players report db="-100"; the real level is in muteDb (present only while muted).
++    - Contract: parse_volume exposes has_mute_db/mute_db; db stays the reported value.
++    - Usage Notes: Safety code uses mute_db as the basis while muted.
++    - Quality Contribution: Catches confusing -100 with the real level.
++    - Worked Example: db="-100" mute="1" muteDb="-32.1" -> db -100, mute, mute_db -32.1.
++    */
++    knob::VolumeInfo v = knob::parse_volume("<volume db=\"-100\" mute=\"1\" muteVolume=\"60\" muteDb=\"-32.1\">0</volume>");
++    TEST_ASSERT_TRUE(v.ok);
++    TEST_ASSERT_TRUE(v.mute);
++    TEST_ASSERT_TRUE(v.has_mute_db);
++    TEST_ASSERT_EQUAL_DOUBLE(-32.1, v.mute_db);
++    TEST_ASSERT_FALSE(knob::parse_volume(kVolumeXml).has_mute_db);
++}
++
+ int main() {
+     UNITY_BEGIN();
+     RUN_TEST(given_real_volume_response_when_parsed_then_db_mute_level);
+     RUN_TEST(given_missing_or_garbled_db_when_parsed_then_not_ok);
+     RUN_TEST(given_real_status_response_when_parsed_then_source_fields);
+     RUN_TEST(given_status_with_entities_and_no_db_when_parsed_then_decoded_and_flagged);
++    RUN_TEST(given_muted_volume_response_when_parsed_then_mute_db_is_the_real_level);
+     return UNITY_END();
+ }
+diff --git a/justfile b/justfile
+index 71ce2a8..0102ede 100644
+--- a/justfile
++++ b/justfile
+@@ -126,3 +126,15 @@ fw-monitor:
+ # Enter Wi-Fi + amp settings on the device (password prompt is hidden). Close any serial monitor first.
+ fw-wifi:
+     "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_wifi.py {{ if fw_port != "" { "--port " + fw_port } else { "" } }}
++
++# Device status as JSON (restarts the device to connect).
++fw-status:
++    "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_console.py status {{ if fw_port != "" { "--port " + fw_port } else { "" } }}
++
++# Let the knob control the amp (you type the confirmation phrase); remembered until fw-dry-run.
++fw-live:
++    "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_console.py live {{ if fw_port != "" { "--port " + fw_port } else { "" } }}
++
++# Stop controlling the amp (remembered across restarts).
++fw-dry-run:
++    "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_console.py dry-run {{ if fw_port != "" { "--port " + fw_port } else { "" } }}
+diff --git a/scripts/fw_console.py b/scripts/fw_console.py
+new file mode 100644
+index 0000000..e4a67b3
+--- /dev/null
++++ b/scripts/fw_console.py
+@@ -0,0 +1,83 @@
++#!/usr/bin/env python3
++"""Send one command to the BluOS Knob ESP32 over USB serial and print its replies.
++
++Opening the port restarts the device; the script waits for it to boot first.
++`live` asks you to type the confirmation phrase yourself (the device checks it).
++"""
++
++from __future__ import annotations
++
++import argparse
++import glob
++import json
++import sys
++import time
++
++import serial  # pyserial (ships with PlatformIO)
++
++PHRASE = "I understand this controls the amplifier"
++
++
++def pick_port(explicit: str | None) -> str:
++    if explicit:
++        return explicit
++    ports = sorted(glob.glob("/dev/cu.usbserial-*")) + sorted(glob.glob("/dev/ttyUSB*"))
++    if len(ports) != 1:
++        sys.exit("Pass --port (found: " + (", ".join(ports) or "none") + ").")
++    return ports[0]
++
++
++def lines(link: serial.Serial, seconds: float):
++    end = time.time() + seconds
++    while time.time() < end:
++        raw = link.readline().decode(errors="replace").strip()
++        if raw.startswith("{"):
++            try:
++                yield json.loads(raw)
++            except json.JSONDecodeError:
++                continue
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("action", choices=["status", "live", "dry-run"])
++    parser.add_argument("--port")
++    args = parser.parse_args()
++
++    command = {"status": "status", "dry-run": "live off"}.get(args.action)
++    if args.action == "live":
++        print("This lets the knob change the amp's volume, mute and source,")
++        print("and it stays LIVE across restarts until `just fw-dry-run`.")
++        typed = input(f"Type exactly: {PHRASE}\n> ")
++        command = f"live on {typed}"
++
++    try:
++        link = serial.Serial(pick_port(args.port), 115200, timeout=0.3)
++    except serial.SerialException as exc:
++        sys.exit(f"Can't open the port ({exc}). Close any serial monitor and retry.")
++    link.dtr = False
++    link.rts = False
++    for message in lines(link, 8):
++        if "live" in message and "note" in message:
++            break
++    if args.action == "status":
++        for _ in lines(link, 6):  # let Wi-Fi join and the first amp poll land after the restart
++            pass
++    link.write((command + "\n").encode())
++    for message in lines(link, 3):
++        if args.action == "status" and "board" in message:
++            print(json.dumps(message, indent=2))
++            return 0
++        if args.action != "status" and "live" in message and "note" not in message:
++            if message.get("error"):
++                print(f"Refused: {message['error']}")
++                return 1
++            state = "LIVE" if message.get("live") else "DRY-RUN"
++            print(f"Device is now {state} (remembered across restarts).")
++            return 0
++    print("No reply from the device.")
++    return 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())

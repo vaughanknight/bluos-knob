@@ -114,7 +114,8 @@ void control_flush() {
 void control_set_live(bool live) {
     control_flush();
     g_live = live;
-    const bool saved = live_save(live);
+    bool saved = live_save(live);
+    if (!saved) saved = live_save(live);  // one retry: an unsaved mode would come back after a restart
     Serial.printf("{\"live\":%s,\"remembered\":%s}\n", live ? "true" : "false", saved ? "true" : "false");
 }
 

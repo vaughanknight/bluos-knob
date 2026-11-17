@@ -41,3 +41,9 @@
 - The unmute log line showed `before_db:-100.0`: **a muted BluOS player reports db="-100"**, with the real level only in `muteDb` (present only while muted; confirmed in the BluOS Custom Integration API docs + homebridge-bluos PROTOCOL.md). A volume step while muted would check the cap against −100, but BluOS applies `db=+1` relative to the real level, so it could pass max_db. **The Python daemon has the same hole** (Deferred: Mac daemon is disabled; fix there before re-enabling).
 - RED: new tests (`given_muted_amp_…`, `given_muted_volume_response_…`) failed: the muted step at the real cap was accepted.
 - Fix: `parse_volume` exposes `has_mute_db/mute_db`; the policy basis while muted is `muteDb`; muted without `muteDb` → Failed, no write. Mute toggle uses only the mute state, so **unmute always works**. `pio test -e native` 29/29 green; reflashed; came back LIVE and in use (19:46).
+
+## Phase 3 review fixes (TDD) + reflash
+- Increases → `abs_db=<checked target>` (race RED −21 → GREEN −24); post-switch re-read + lower (RED −20 → GREEN −40); `fmt_db` fixed-point; `live` save retried + console warns when not saved. `pio test -e native` **31/31**. Reflashed: boots LIVE (remembered), knob connected, amp ok −38 dB.
+
+## Phase 3 complete
+- Deferred for a human before relying on them: **Optical/Spotify buttons not yet exercised on the real amp** (tests only); **Python daemon has the muted −100 dB and read→relative-write gaps**, so fix it before re-enabling it.
