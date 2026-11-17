@@ -83,34 +83,58 @@ void log_result(const knob::ExecResult& r, bool live, int clicks) {
         r.cap_blocked, r.writes, json_safe(r.message).c_str());
 }
 
-// Takes everything pending, drops stale/superseded clicks, coalesces the rest into the fewest commands
-// (one net volume step per run of clicks) and executes them in order.
+struct Segment {
+    std::vector<knob::Action> actions;  // a run of volume clicks, or one barrier action
+    uint32_t newest_ms = 0;
+};
+
+bool is_volume(knob::Action a) { return a == knob::Action::VolumeUp || a == knob::Action::VolumeDown; }
+
+// Takes everything pending, drops stale/superseded clicks, coalesces runs of volume clicks into one net
+// step, and executes in order. Before EACH command it re-checks the generation (live off / knob reconnect
+// abandons the rest of the burst), re-reads the live flag, and re-applies the 1 s staleness rule.
 void control_task(void*) {
     Pending p;
     for (;;) {
         if (xQueueReceive(g_queue, &p, portMAX_DELAY) != pdTRUE) continue;
         g_executing = true;
-        std::vector<knob::Action> burst;
+        const uint32_t generation = g_generation;
+        std::vector<Segment> segments;
+        int clicks = 0;
         do {
             const uint32_t now = millis();
-            if (p.generation != g_generation || knob::event_is_stale(p.event_ms, now, kMaxEventAgeMs)) {
+            if (p.generation != generation || knob::event_is_stale(p.event_ms, now, kMaxEventAgeMs)) {
                 g_dropped++;
                 Serial.printf("{\"control\":\"dropped\",\"action\":\"%s\",\"age_ms\":%lu}\n",
                               knob::action_name(p.action), static_cast<unsigned long>(now - p.event_ms));
-            } else {
-                burst.push_back(p.action);
+                continue;
             }
+            clicks++;
+            if (segments.empty() || !is_volume(p.action) || !is_volume(segments.back().actions.front()))
+                segments.push_back({});
+            segments.back().actions.push_back(p.action);
+            segments.back().newest_ms = p.event_ms;
         } while (xQueueReceive(g_queue, &p, 0) == pdTRUE);
 
-        const bool live = g_live;
-        for (const knob::Command& command : knob::coalesce(burst, g_config)) {
-            const knob::ExecResult r = knob::execute(command, g_config, *g_amp, live);
-            log_result(r, live, static_cast<int>(burst.size()));
-            xSemaphoreTake(g_lock, portMAX_DELAY);
-            g_last.valid = true;
-            g_last.at_ms = millis();
-            g_last.result = r;
-            xSemaphoreGive(g_lock);
+        for (size_t i = 0; i < segments.size(); ++i) {
+            const uint32_t now = millis();
+            if (g_generation != generation || knob::event_is_stale(segments[i].newest_ms, now, kMaxEventAgeMs)) {
+                const size_t left = segments.size() - i;
+                g_dropped += left;
+                Serial.printf("{\"control\":\"abandoned\",\"segments\":%u,\"reason\":\"%s\"}\n",
+                              static_cast<unsigned>(left), g_generation != generation ? "mode_or_link_change" : "stale");
+                break;
+            }
+            for (const knob::Command& command : knob::coalesce(segments[i].actions, g_config)) {
+                const bool live = g_live;
+                const knob::ExecResult r = knob::execute(command, g_config, *g_amp, live);
+                log_result(r, live, clicks);
+                xSemaphoreTake(g_lock, portMAX_DELAY);
+                g_last.valid = true;
+                g_last.at_ms = millis();
+                g_last.result = r;
+                xSemaphoreGive(g_lock);
+            }
         }
         g_executing = false;
     }

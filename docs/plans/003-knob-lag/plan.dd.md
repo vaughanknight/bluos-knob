@@ -51,11 +51,11 @@ Turning the knob back and forth quickly backs up requests: every click is its ow
 
 | id | claim | state | note | receipt | pressure | proven_by |
 | --- | --- | --- | --- | --- | --- | --- |
-| ac-0301 | Pending volume clicks are combined into one net step per round (e.g. up,down,up -&gt; +1; five ups -&gt; +5; up,down -&gt; nothing sent), with mute/source commands acting as ordering barriers. | [ ] unchecked | — | — | — | — |
-| ac-0302 | A combined increase that would pass max_db is written as exactly max_db (cap_blocked flagged); it never exceeds max_db, including when the amp is muted or changed elsewhere meanwhile. | [ ] unchecked | — | — | — | — |
-| ac-0303 | The amp HTTP connection is reused between requests (keep-alive), with no change to timeouts or the never-retry-writes rule. | [ ] unchecked | — | — | — | — |
-| ac-0304 | The screen does not redraw while knob events are queued or an amp command is in flight; it redraws once when idle. | [ ] unchecked | — | — | — | — |
-| ac-0305 | On the device, rapid back-and-forth turning no longer backs up: serial shows coalesced steps and no control_dropped growth; Vaughan confirms it feels responsive. | [ ] unchecked | — | — | — | — |
+| ac-0301 | Pending volume clicks are combined into one net step per round (e.g. up,down,up -&gt; +1; five ups -&gt; +5; up,down -&gt; nothing sent), with mute/source commands acting as ordering barriers. | [x] checked | — | — | — | — |
+| ac-0302 | A combined increase that would pass max_db is written as exactly max_db (cap_blocked flagged); it never exceeds max_db, including when the amp is muted or changed elsewhere meanwhile. | [x] checked | — | — | — | — |
+| ac-0303 | The amp HTTP connection is reused between requests (keep-alive), with no change to timeouts or the never-retry-writes rule. | [x] checked | — | — | — | — |
+| ac-0304 | The screen does not redraw while knob events are queued or an amp command is in flight; it redraws once when idle. | [x] checked | — | — | — | — |
+| ac-0305 | On the device, rapid back-and-forth turning no longer backs up: serial shows coalesced steps and no control_dropped growth; Vaughan confirms it feels responsive. | [x] checked | — | — | — | — |
 
 <a id="phases"></a>
 
@@ -63,7 +63,7 @@ Turning the knob back and forth quickly backs up requests: every click is its ow
 
 | id | title | brief | state | note | receipt | depends_on | tasks | objective | delivers | key_risks |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ph-8730 | Coalesced control + idle screen | TDD the coalescer and capped net step, then wire control task, transport and screen. | [ ] unchecked | — | — | — | [tasks](assets/tasks/phase-1/tasks.dd.md#tasks) | Coalesce clicks, keep-alive, idle-only redraw; flash and verify. | — | — |
+| ph-8730 | Coalesced control + idle screen | TDD the coalescer and capped net step, then wire control task, transport and screen. | [x] checked | — | — | — | [tasks](assets/tasks/phase-1/tasks.dd.md#tasks) | Coalesce clicks, keep-alive, idle-only redraw; flash and verify. | — | — |
 
 <a id="research-context"></a>
 

@@ -46,13 +46,14 @@
         {
           "id": "tk-3103",
           "title": "amp_control: drain the queue into coalesced rounds; one reused HTTPClient with keep-alive; busy flag",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-3103",
           "success": "Builds; serial shows one command per burst",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0301",
             "../../../plan.dd.json#acceptance_criteria/ac-0303"
-          ]
+          ],
+          "receipt": "Serial: bursts of 2/3/5/7/8/13 clicks → one volume_step, writes 1 each"
         },
         {
           "id": "tk-3104",
@@ -68,12 +69,13 @@
         {
           "id": "tk-3105",
           "title": "Hardware smoke: flash; rapid back-and-forth turns; check serial coalescing, control_dropped, cap; Vaughan feel check",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-3105",
           "success": "Recorded in execution log",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0305"
-          ]
+          ],
+          "receipt": "09:07 flashed; Vaughan 22:09Z 'Feels responsive now'; up to 13 clicks coalesced per write; dropped 0, control_dropped 0; min_free_heap 65504"
         }
       ]
     },
@@ -106,7 +108,7 @@
           {
             "id": "dw-1031",
             "assertion": "Serial: one volume_step line per burst with net step",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -122,19 +124,19 @@
           {
             "id": "dw-1050",
             "assertion": "Coalesced steps seen",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-1051",
             "assertion": "control_dropped unchanged",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-1052",
             "assertion": "Vaughan: responsive",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ]

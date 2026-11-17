@@ -1,0 +1,360 @@
+diff --git a/firmware/lib/knob_core/src/amp_policy.cpp b/firmware/lib/knob_core/src/amp_policy.cpp
+index dcfdb2e..49c559a 100644
+--- a/firmware/lib/knob_core/src/amp_policy.cpp
++++ b/firmware/lib/knob_core/src/amp_policy.cpp
+@@ -133,6 +133,29 @@ Command plan_command(Action action, const Config& config) {
+     }
+ }
+ 
++std::vector<Command> coalesce(const std::vector<Action>& actions, const Config& config) {
++    std::vector<Command> out;
++    int net = 0;
++    auto flush = [&]() {
++        if (net != 0) out.push_back({CommandKind::VolumeStep, net * config.step_db});
++        net = 0;
++    };
++    for (const Action action : actions) {
++        if (action == Action::VolumeUp) {
++            net++;
++        } else if (action == Action::VolumeDown) {
++            net--;
++        } else {
++            const Command c = plan_command(action, config);
++            if (c.kind == CommandKind::Ignore) continue;
++            flush();
++            out.push_back(c);
++        }
++    }
++    flush();
++    return out;
++}
++
+ ExecResult execute(const Command& command, const Config& config, AmpTransport& amp, bool live) {
+     ExecResult r;
+     r.kind = command.kind;
+@@ -148,12 +171,15 @@ ExecResult execute(const Command& command, const Config& config, AmpTransport& a
+             if (!read_volume(amp, &volume, &error)) return failed(r, error);
+             r.has_before = true;
+             r.before_db = volume.db;
+-            const double planned = volume.db + command.step_db;
++            double planned = volume.db + command.step_db;
+             if (command.step_db > 0 && planned > config.max_db) {
+-                r.outcome = Outcome::Refused;
+                 r.cap_blocked = true;
+                 r.message = "max " + fmt_db(config.max_db) + " dB";
+-                return r;
++                if (volume.db >= config.max_db) {  // already at/over the cap: nothing to raise
++                    r.outcome = Outcome::Refused;
++                    return r;
++                }
++                planned = config.max_db;  // stop exactly at the cap
+             }
+             r.has_after = true;
+             r.after_db = planned;
+diff --git a/firmware/lib/knob_core/src/amp_policy.h b/firmware/lib/knob_core/src/amp_policy.h
+index e3ec8f0..322ad62 100644
+--- a/firmware/lib/knob_core/src/amp_policy.h
++++ b/firmware/lib/knob_core/src/amp_policy.h
+@@ -10,6 +10,7 @@
+ 
+ #include <cstdint>
+ #include <string>
++#include <vector>
+ 
+ #include "config.h"
+ #include "decoder.h"
+@@ -46,6 +47,10 @@ struct ExecResult {
+ };
+ 
+ Command plan_command(Action action, const Config& config);
++
++// Combines a burst of pending knob actions into the fewest commands, in order: consecutive volume
++// clicks become one net VolumeStep (zero net -> nothing); any other command is a barrier kept as-is.
++std::vector<Command> coalesce(const std::vector<Action>& actions, const Config& config);
+ ExecResult execute(const Command& command, const Config& config, AmpTransport& amp, bool live);
+ 
+ bool event_is_stale(uint32_t event_ms, uint32_t now_ms, uint32_t max_age_ms);
+diff --git a/firmware/src/amp_control.cpp b/firmware/src/amp_control.cpp
+index d58a49e..32f4908 100644
+--- a/firmware/src/amp_control.cpp
++++ b/firmware/src/amp_control.cpp
+@@ -8,6 +8,7 @@
+ 
+ #include <atomic>
+ #include <string>
++#include <vector>
+ 
+ #include "config_store.h"
+ 
+@@ -15,7 +16,7 @@ namespace {
+ 
+ constexpr uint32_t kMaxEventAgeMs = 1000;
+ constexpr uint32_t kHttpTimeoutMs = 2000;
+-constexpr size_t kQueueDepth = 8;
++constexpr size_t kQueueDepth = 32;  // bursts are coalesced, so depth only bounds memory
+ 
+ struct Pending {
+     knob::Action action;
+@@ -23,27 +24,38 @@ struct Pending {
+     uint32_t generation;
+ };
+ 
++// One kept-alive connection to the amp. A read that fails (e.g. the amp closed an idle connection) is
++// retried once on a fresh connection; writes are never retried (they may have applied).
+ class HttpAmp : public knob::AmpTransport {
+    public:
+-    HttpAmp(const std::string& host, int port) : base_("http://" + host + ":" + std::to_string(port)) {}
++    HttpAmp(const std::string& host, int port) : base_("http://" + host + ":" + std::to_string(port)) {
++        http_.setReuse(true);
++        http_.setConnectTimeout(kHttpTimeoutMs);
++        http_.setTimeout(kHttpTimeoutMs);
++    }
+     bool get(const std::string& path, std::string* body) override {
+         if (WiFi.status() != WL_CONNECTED) return false;
+-        HTTPClient http;
+-        http.setConnectTimeout(kHttpTimeoutMs);
+-        http.setTimeout(kHttpTimeoutMs);
+-        if (!http.begin((base_ + path).c_str())) return false;
+-        const int code = http.GET();
+-        if (code != 200) {
+-            http.end();
+-            return false;
+-        }
+-        *body = http.getString().c_str();
+-        http.end();
+-        return true;
++        if (once(path, body)) return true;
++        const bool is_read = path == "/Volume" || path == "/Status" || path.rfind("/RadioBrowse", 0) == 0;
++        if (!is_read) return false;
++        tcp_.stop();
++        return once(path, body);
+     }
+ 
+    private:
++    bool once(const std::string& path, std::string* body) {
++        if (!http_.begin(tcp_, (base_ + path).c_str())) return false;
++        const int code = http_.GET();
++        const bool ok = code == 200;
++        if (ok) *body = http_.getString().c_str();
++        http_.end();  // keeps the TCP connection open (setReuse)
++        if (code < 0) tcp_.stop();
++        return ok;
++    }
++
+     std::string base_;
++    WiFiClient tcp_;
++    HTTPClient http_;
+ };
+ 
+ knob::Config g_config;
+@@ -53,6 +65,7 @@ SemaphoreHandle_t g_lock = nullptr;
+ std::atomic<bool> g_live{false};  // restored from NVS by control_start
+ std::atomic<uint32_t> g_generation{0};
+ std::atomic<uint32_t> g_dropped{0};
++std::atomic<bool> g_executing{false};
+ ControlResult g_last;
+ 
+ std::string json_safe(const std::string& in) {
+@@ -61,30 +74,45 @@ std::string json_safe(const std::string& in) {
+     return out;
+ }
+ 
++void log_result(const knob::ExecResult& r, bool live, int clicks) {
++    Serial.printf(
++        "{\"control\":\"%s\",\"command\":\"%s\",\"live\":%d,\"clicks\":%d,\"before_db\":%s,\"after_db\":%s,"
++        "\"cap\":%d,\"writes\":%d,\"message\":\"%s\"}\n",
++        knob::outcome_name(r.outcome), knob::command_name(r.kind), live, clicks,
++        r.has_before ? String(r.before_db, 1).c_str() : "null", r.has_after ? String(r.after_db, 1).c_str() : "null",
++        r.cap_blocked, r.writes, json_safe(r.message).c_str());
++}
++
++// Takes everything pending, drops stale/superseded clicks, coalesces the rest into the fewest commands
++// (one net volume step per run of clicks) and executes them in order.
+ void control_task(void*) {
+     Pending p;
+     for (;;) {
+         if (xQueueReceive(g_queue, &p, portMAX_DELAY) != pdTRUE) continue;
+-        const uint32_t now = millis();
+-        if (p.generation != g_generation || knob::event_is_stale(p.event_ms, now, kMaxEventAgeMs)) {
+-            g_dropped++;
+-            Serial.printf("{\"control\":\"dropped\",\"action\":\"%s\",\"age_ms\":%lu}\n", knob::action_name(p.action),
+-                          static_cast<unsigned long>(now - p.event_ms));
+-            continue;
+-        }
++        g_executing = true;
++        std::vector<knob::Action> burst;
++        do {
++            const uint32_t now = millis();
++            if (p.generation != g_generation || knob::event_is_stale(p.event_ms, now, kMaxEventAgeMs)) {
++                g_dropped++;
++                Serial.printf("{\"control\":\"dropped\",\"action\":\"%s\",\"age_ms\":%lu}\n",
++                              knob::action_name(p.action), static_cast<unsigned long>(now - p.event_ms));
++            } else {
++                burst.push_back(p.action);
++            }
++        } while (xQueueReceive(g_queue, &p, 0) == pdTRUE);
++
+         const bool live = g_live;
+-        const knob::ExecResult r = knob::execute(knob::plan_command(p.action, g_config), g_config, *g_amp, live);
+-        Serial.printf(
+-            "{\"control\":\"%s\",\"command\":\"%s\",\"live\":%d,\"before_db\":%s,\"after_db\":%s,\"cap\":%d,"
+-            "\"writes\":%d,\"message\":\"%s\"}\n",
+-            knob::outcome_name(r.outcome), knob::command_name(r.kind), live,
+-            r.has_before ? String(r.before_db, 1).c_str() : "null", r.has_after ? String(r.after_db, 1).c_str() : "null",
+-            r.cap_blocked, r.writes, json_safe(r.message).c_str());
+-        xSemaphoreTake(g_lock, portMAX_DELAY);
+-        g_last.valid = true;
+-        g_last.at_ms = millis();
+-        g_last.result = r;
+-        xSemaphoreGive(g_lock);
++        for (const knob::Command& command : knob::coalesce(burst, g_config)) {
++            const knob::ExecResult r = knob::execute(command, g_config, *g_amp, live);
++            log_result(r, live, static_cast<int>(burst.size()));
++            xSemaphoreTake(g_lock, portMAX_DELAY);
++            g_last.valid = true;
++            g_last.at_ms = millis();
++            g_last.result = r;
++            xSemaphoreGive(g_lock);
++        }
++        g_executing = false;
+     }
+ }
+ 
+@@ -131,3 +159,5 @@ ControlResult control_last() {
+ }
+ 
+ uint32_t control_dropped() { return g_dropped; }
++
++bool control_busy() { return g_executing || (g_queue != nullptr && uxQueueMessagesWaiting(g_queue) > 0); }
+diff --git a/firmware/src/amp_control.h b/firmware/src/amp_control.h
+index e8dee2c..9598e05 100644
+--- a/firmware/src/amp_control.h
++++ b/firmware/src/amp_control.h
+@@ -23,3 +23,5 @@ void control_set_live(bool live);
+ bool control_live();
+ ControlResult control_last();
+ uint32_t control_dropped();
++// True while knob commands are queued or one is being sent to the amp.
++bool control_busy();
+diff --git a/firmware/src/main.cpp b/firmware/src/main.cpp
+index fa72d4d..c08b989 100644
+--- a/firmware/src/main.cpp
++++ b/firmware/src/main.cpp
+@@ -303,6 +303,8 @@ void loop() {
+     g_ui.fault = current_fault(g_ui.amp);
+     g_ui.show_action = (now - g_action_at) < kActionShowMs && g_ui.events > 0;
+     g_ui.dimmed = g_dimmer.dimmed(now) && g_ui.fault.empty();
+-    ui_render(g_ui);
++    // The screen is for debugging: never redraw while knob events or amp commands are pending, so a
++    // full-screen redraw can't delay draining the knob queue. One redraw happens once it's idle.
++    if (uxQueueMessagesWaiting(g_events) == 0 && !control_busy()) ui_render(g_ui);
+     delay(10);
+ }
+diff --git a/firmware/test/test_amp_policy/test_amp_policy.cpp b/firmware/test/test_amp_policy/test_amp_policy.cpp
+index 0da32d8..9b0d602 100644
+--- a/firmware/test/test_amp_policy/test_amp_policy.cpp
++++ b/firmware/test/test_amp_policy/test_amp_policy.cpp
+@@ -134,10 +134,10 @@ void given_volume_at_or_near_cap_when_stepping_up_then_refused_without_write() {
+     /*
+     Test Doc:
+     - Why: Safety-first: the knob must never push the amp past max_db (default -24 dB).
+-    - Contract: if current + step > max_db the increase is refused, cap_blocked is set, and nothing is written.
++    - Contract: at/above max_db an increase is refused with no write; otherwise it stops at max_db (cap_blocked).
+     - Usage Notes: Mirrors assert_safe_step in scripts/bluos_volume_step.py.
+     - Quality Contribution: Catches the core loudness guard regressing.
+-    - Worked Example: amp -24 +1 -> refused; amp -24.5 (changed in the app since the last poll) +1 -> refused.
++    - Worked Example: amp -24 +1 -> refused, no write; amp -24.5 +1 -> clamped to exactly -24 (cap_blocked).
+     */
+     FakeAmp amp;
+     amp.db = -24;
+@@ -145,10 +145,11 @@ void given_volume_at_or_near_cap_when_stepping_up_then_refused_without_write() {
+     TEST_ASSERT_EQUAL(Outcome::Refused, r.outcome);
+     TEST_ASSERT_TRUE(r.cap_blocked);
+     TEST_ASSERT_EQUAL_INT(0, amp.writes());
+-    amp.db = -24.5;
++    amp.db = -24.5;  // plan 003: an increase that would pass the cap stops exactly at it
+     r = run(Action::VolumeUp, amp);
+-    TEST_ASSERT_EQUAL(Outcome::Refused, r.outcome);
+-    TEST_ASSERT_EQUAL_DOUBLE(-24.5, amp.db);
++    TEST_ASSERT_EQUAL(Outcome::Done, r.outcome);
++    TEST_ASSERT_TRUE(r.cap_blocked);
++    TEST_ASSERT_EQUAL_DOUBLE(-24, amp.db);
+ }
+ 
+ void given_volume_above_cap_when_stepping_down_then_allowed() {
+@@ -380,6 +381,67 @@ void given_input_with_its_own_level_when_switching_source_then_rechecked_and_low
+     TEST_ASSERT_EQUAL_DOUBLE(-40, r.after_db);
+ }
+ 
++static double net_step(const std::vector<knob::Command>& cmds, size_t i) { return cmds.at(i).step_db; }
++
++void given_click_bursts_when_coalesced_then_one_net_step_per_run_of_volume_clicks() {
++    /*
++    Test Doc:
++    - Why: Plan 003: back-and-forth turning queued one HTTP round-trip per click and backed up.
++    - Contract: consecutive up/down clicks sum to one VolumeStep (net * step_db); zero net emits nothing;
++      mute/source actions are barriers kept in order; ignored actions vanish.
++    - Usage Notes: the control task drains everything pending, coalesces, then executes in order.
++    - Quality Contribution: Catches lost clicks, reordering across a mute/source press, and no-op writes.
++    - Worked Example: up,down,up -> [+1]; up x5 -> [+5]; up,down -> []; up,up,mute,down -> [+2, mute, -1].
++    */
++    const knob::Config c = config();
++    std::vector<knob::Command> r = knob::coalesce({Action::VolumeUp, Action::VolumeDown, Action::VolumeUp}, c);
++    TEST_ASSERT_EQUAL_UINT(1, r.size());
++    TEST_ASSERT_EQUAL_DOUBLE(1, net_step(r, 0));
++    r = knob::coalesce({Action::VolumeUp, Action::VolumeUp, Action::VolumeUp, Action::VolumeUp, Action::VolumeUp}, c);
++    TEST_ASSERT_EQUAL_UINT(1, r.size());
++    TEST_ASSERT_EQUAL_DOUBLE(5, net_step(r, 0));
++    TEST_ASSERT_EQUAL_UINT(0, knob::coalesce({Action::VolumeUp, Action::VolumeDown}, c).size());
++    r = knob::coalesce({Action::VolumeUp, Action::VolumeUp, Action::MuteToggle, Action::NoOp, Action::VolumeDown}, c);
++    TEST_ASSERT_EQUAL_UINT(3, r.size());
++    TEST_ASSERT_EQUAL_DOUBLE(2, net_step(r, 0));
++    TEST_ASSERT_EQUAL(CommandKind::MuteToggle, r.at(1).kind);
++    TEST_ASSERT_EQUAL_DOUBLE(-1, net_step(r, 2));
++    r = knob::coalesce({Action::BrightnessUp, Action::BrightnessDown}, c);
++    TEST_ASSERT_EQUAL_UINT(2, r.size());
++    TEST_ASSERT_EQUAL(CommandKind::SourceSpotify, r.at(0).kind);
++    TEST_ASSERT_EQUAL(CommandKind::SourceOptical, r.at(1).kind);
++}
++
++void given_net_burst_past_cap_when_executed_then_stops_exactly_at_cap_in_one_write() {
++    /*
++    Test Doc:
++    - Why: A coalesced +N must never exceed max_db, including when muted or changed elsewhere meanwhile.
++    - Contract: one fresh read, one abs_db write of min(current + N, max_db); cap_blocked when clamped.
++    - Usage Notes: the muted basis (muteDb) and the race (abs write) rules from plan 002 still apply.
++    - Quality Contribution: Catches a coalesced jump past the cap.
++    - Worked Example: -27 +5 -> one write abs_db=-24; muted real -26 +5 -> -24; read -27, app +2 meanwhile, +5 -> -24.
++    */
++    const knob::Config c = config();
++    knob::Command up5{CommandKind::VolumeStep, 5};
++    FakeAmp amp;
++    amp.db = -27;
++    knob::ExecResult r = knob::execute(up5, c, amp, true);
++    TEST_ASSERT_EQUAL(Outcome::Done, r.outcome);
++    TEST_ASSERT_TRUE(r.cap_blocked);
++    TEST_ASSERT_EQUAL_INT(1, amp.writes());
++    TEST_ASSERT_EQUAL_DOUBLE(-24, amp.db);
++    FakeAmp muted;
++    muted.db = -26;
++    muted.mute = true;
++    knob::execute(up5, c, muted, true);
++    TEST_ASSERT_EQUAL_DOUBLE(-24, muted.db);
++    FakeAmp race;
++    race.db = -27;
++    race.race_db = 2;
++    knob::execute(up5, c, race, true);
++    TEST_ASSERT_EQUAL_DOUBLE(-24, race.db);
++}
++
+ int main() {
+     UNITY_BEGIN();
+     RUN_TEST(given_actions_when_planned_then_match_daemon_command_table);
+@@ -396,5 +458,7 @@ int main() {
+     RUN_TEST(given_muted_amp_when_stepping_or_switching_then_cap_uses_the_real_unmuted_level);
+     RUN_TEST(given_volume_raised_elsewhere_between_read_and_write_when_stepping_up_then_never_exceeds_cap);
+     RUN_TEST(given_input_with_its_own_level_when_switching_source_then_rechecked_and_lowered);
++    RUN_TEST(given_click_bursts_when_coalesced_then_one_net_step_per_run_of_volume_clicks);
++    RUN_TEST(given_net_burst_past_cap_when_executed_then_stops_exactly_at_cap_in_one_write);
+     return UNITY_END();
+ }

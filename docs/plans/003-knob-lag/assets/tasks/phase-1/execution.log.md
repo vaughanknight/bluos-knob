@@ -15,3 +15,11 @@
 
 ## tk-3104 idle-only screen
 - `ui_render` runs only when the knob event queue is empty and `!control_busy()`.
+
+## tk-3105 hardware smoke: done
+- Flashed 09:07; boots LIVE, knob + Wi-Fi connected.
+- Vaughan (22:09Z): "Feels responsive now". Serial during back-and-forth spinning: requests combined 2, 3, 5, 7, 8 and **13 clicks into one write** each (e.g. 13 clicks −32 → −39 in one write); every command `writes:1`; `dropped 0`, `control_dropped 0`, no stale drops; min_free_heap 65504.
+- Cap not exercised in this session (stayed ≤ −32 dB); covered by `given_net_burst_past_cap…`.
+
+## Review fixes (09:15)
+- Per-command generation + live re-check and per-segment staleness in the control task (review findings 1–2). 33/33, reflashed, boots LIVE and healthy.

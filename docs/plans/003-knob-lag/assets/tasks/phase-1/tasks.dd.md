@@ -37,9 +37,9 @@ Work top to bottom. Flashing pauses the knob ~30 s; tell Vaughan first.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | tk-3101 | RED: native tests for the click coalescer (net sum, barriers, zero-net) and the capped net step (clamp to max_db, muted, race) | — | — | [x] checked | — | RED: 3 failed (coalesce stub empty; clamp refused instead of stopping at cap) | [x] 1/1 [tk-3101](#tk-3101) | Tests fail on stubs | — | [ac-0301](../../../plan.dd.md#acceptance-criteria), [ac-0302](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-3102 | GREEN: knob_core coalescer + clamped net volume step in amp_policy | — | — | [x] checked | — | pio test -e native 33/33 | [x] 1/1 [tk-3102](#tk-3102) | All native tests pass | — | [ac-0301](../../../plan.dd.md#acceptance-criteria), [ac-0302](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-3103 | amp_control: drain the queue into coalesced rounds; one reused HTTPClient with keep-alive; busy flag | — | — | [ ] unchecked | — | — | [~] 1/2 [tk-3103](#tk-3103) | Builds; serial shows one command per burst | — | [ac-0301](../../../plan.dd.md#acceptance-criteria), [ac-0303](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-3103 | amp_control: drain the queue into coalesced rounds; one reused HTTPClient with keep-alive; busy flag | — | — | [x] checked | — | Serial: bursts of 2/3/5/7/8/13 clicks → one volume_step, writes 1 each | [x] 2/2 [tk-3103](#tk-3103) | Builds; serial shows one command per burst | — | [ac-0301](../../../plan.dd.md#acceptance-criteria), [ac-0303](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-3104 | main/display: skip redraws while events are queued or a command is in flight; redraw once when idle | — | — | [x] checked | — | main.cpp: ui_render only when knob queue empty and !control_busy() | [x] 1/1 [tk-3104](#tk-3104) | Builds; no redraw during bursts | — | [ac-0304](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-3105 | Hardware smoke: flash; rapid back-and-forth turns; check serial coalescing, control_dropped, cap; Vaughan feel check | — | — | [ ] unchecked | — | — | [ ] 0/3 [tk-3105](#tk-3105) | Recorded in execution log | — | [ac-0305](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-3105 | Hardware smoke: flash; rapid back-and-forth turns; check serial coalescing, control_dropped, cap; Vaughan feel check | — | — | [x] checked | — | 09:07 flashed; Vaughan 22:09Z 'Feels responsive now'; up to 13 clicks coalesced per write; dropped 0, control_dropped 0; min_free_heap 65504 | [x] 3/3 [tk-3105](#tk-3105) | Recorded in execution log | — | [ac-0305](../../../plan.dd.md#acceptance-criteria) | — |
 
 <a id="done-when"></a>
 
@@ -62,7 +62,7 @@ Work top to bottom. Flashing pauses the knob ~30 s; tell Vaughan first.
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
 | dw-1030 | pio run green | [x] checked | not-applicable |
-| dw-1031 | Serial: one volume_step line per burst with net step | [ ] unchecked | not-applicable |
+| dw-1031 | Serial: one volume_step line per burst with net step | [x] checked | not-applicable |
 
 ### tk-3104
 
@@ -74,6 +74,6 @@ Work top to bottom. Flashing pauses the knob ~30 s; tell Vaughan first.
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-1050 | Coalesced steps seen | [ ] unchecked | not-applicable |
-| dw-1051 | control_dropped unchanged | [ ] unchecked | not-applicable |
-| dw-1052 | Vaughan: responsive | [ ] unchecked | not-applicable |
+| dw-1050 | Coalesced steps seen | [x] checked | not-applicable |
+| dw-1051 | control_dropped unchanged | [x] checked | not-applicable |
+| dw-1052 | Vaughan: responsive | [x] checked | not-applicable |

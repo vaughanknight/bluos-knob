@@ -44,27 +44,27 @@
         {
           "id": "ac-0301",
           "claim": "Pending volume clicks are combined into one net step per round (e.g. up,down,up -> +1; five ups -> +5; up,down -> nothing sent), with mute/source commands acting as ordering barriers.",
-          "state": "unchecked"
+          "state": "checked"
         },
         {
           "id": "ac-0302",
           "claim": "A combined increase that would pass max_db is written as exactly max_db (cap_blocked flagged); it never exceeds max_db, including when the amp is muted or changed elsewhere meanwhile.",
-          "state": "unchecked"
+          "state": "checked"
         },
         {
           "id": "ac-0303",
           "claim": "The amp HTTP connection is reused between requests (keep-alive), with no change to timeouts or the never-retry-writes rule.",
-          "state": "unchecked"
+          "state": "checked"
         },
         {
           "id": "ac-0304",
           "claim": "The screen does not redraw while knob events are queued or an amp command is in flight; it redraws once when idle.",
-          "state": "unchecked"
+          "state": "checked"
         },
         {
           "id": "ac-0305",
           "claim": "On the device, rapid back-and-forth turning no longer backs up: serial shows coalesced steps and no control_dropped growth; Vaughan confirms it feels responsive.",
-          "state": "unchecked"
+          "state": "checked"
         }
       ]
     },
@@ -74,7 +74,7 @@
         {
           "id": "ph-8730",
           "title": "Coalesced control + idle screen",
-          "state": "unchecked",
+          "state": "checked",
           "tasks": "assets/tasks/phase-1/tasks.dd.json#tasks",
           "objective": "Coalesce clicks, keep-alive, idle-only redraw; flash and verify.",
           "brief": "TDD the coalescer and capped net step, then wire control task, transport and screen."
