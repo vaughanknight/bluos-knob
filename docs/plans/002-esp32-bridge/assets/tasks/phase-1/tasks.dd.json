@@ -21,10 +21,10 @@
       "value": [
         {
           "id": "tk-2101",
-          "title": "Spike: throwaway NimBLE-Arduino sketch in /tmp/bluos-ble-spike bonds to ANTICATER_MINI and prints raw Report notifications",
+          "title": "Spike: throwaway NimBLE-Arduino sketch in /tmp/bluos-ble-spike bonds to ANTICATER_MINI and prints raw Report notifications, while Wi-Fi is connected with periodic HTTP GETs and M5Unified redraws the screen",
           "state": "unchecked",
           "done": "#done_when/tk-2101",
-          "success": "Go/no-go verdict, payload form and bonding quirks recorded in the execution log; spike code discarded",
+          "success": "Go/no-go verdict, payload form, bonding quirks and min free heap under BLE+Wi-Fi+display recorded in the execution log; spike code discarded",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0203"
           ]
@@ -63,10 +63,10 @@
         },
         {
           "id": "tk-2105",
-          "title": "BLE knob adapter: scan for ANTICATER name, bond, subscribe to HID reports, enqueue raw payloads to a bounded FreeRTOS queue; reconnect with backoff; serial `bonds clear`",
+          "title": "BLE knob adapter: scan for ANTICATER name, bond, subscribe to HID reports, enqueue timestamped raw payloads to a bounded FreeRTOS queue (drop-newest on overflow, counted); reconnect with backoff; serial `bonds clear`",
           "state": "unchecked",
           "done": "#done_when/tk-2105",
-          "success": "Adapter compiles; callback does no work beyond enqueue",
+          "success": "Adapter compiles; callback does no work beyond enqueue; overflow is counted, never blocks",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0203"
           ]
@@ -105,6 +105,12 @@
           },
           {
             "id": "dw-1011",
+            "assertion": "No missed gestures across 50 turns with Wi-Fi + display active; min free heap logged",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1012",
             "assertion": "Verdict + constraints written to execution log",
             "state": "unchecked",
             "pressure": "not-applicable"
@@ -161,6 +167,12 @@
           },
           {
             "id": "dw-1051",
+            "assertion": "Overflow counter exposed on serial",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1052",
             "assertion": "just fw-build green",
             "state": "unchecked",
             "pressure": "not-applicable"

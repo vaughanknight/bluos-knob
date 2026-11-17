@@ -82,10 +82,10 @@
         },
         {
           "id": "tk-2207",
-          "title": "Hardware smoke: provision Wi-Fi, live volume/source shown; wrong host shows fault; dim + wake observed",
+          "title": "Hardware smoke: provision Wi-Fi, live volume/source shown; wrong host shows fault; dim + wake observed; 5 knob power-cycles and 3 Wi-Fi AP drops with gesture counts and min free heap logged",
           "state": "unchecked",
           "done": "#done_when/tk-2207",
-          "success": "Recorded in execution log",
+          "success": "Recorded in execution log; no resets, no progressive heap loss",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0204",
             "../../../plan.dd.json#acceptance_criteria/ac-0205",
@@ -191,6 +191,12 @@
           {
             "id": "dw-2072",
             "assertion": "Dim then wake on knob turn",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-2073",
+            "assertion": "All gestures counted after each reconnect; no reset; min free heap stable",
             "state": "unchecked",
             "pressure": "not-applicable"
           }

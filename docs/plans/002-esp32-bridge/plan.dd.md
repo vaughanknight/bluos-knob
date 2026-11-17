@@ -61,7 +61,7 @@ Vaughan wants the knob-to-amp bridge to run on a cheap M5 ESP32 with a small scr
 | ac-0204 | `just fw-wifi` prompts for SSID and a hidden password in the terminal, stores them in device NVS over serial, and neither value appears in serial output, logs, or git. | [ ] unchecked | — | — | — | — |
 | ac-0205 | On Wi-Fi the screen shows the amp's current volume (dB) and source from BluOS; when the amp or knob is unreachable it shows a plain-language fault (e.g. "can't reach amp 192.168.1.67", "knob not connected"). | [ ] unchecked | — | — | — | — |
 | ac-0206 | A volume increase that would exceed max dB is refused and flagged on screen; source switches set volume to the safe level ≤ −24 dB; both are covered by host tests mirroring `assert_safe_step` and `safe_abs_db_value`. | [ ] unchecked | — | — | — | — |
-| ac-0207 | The device boots in dry-run (shows DRY-RUN, sends no write commands); live control is enabled only by an explicit serial command and is shown on screen. | [ ] unchecked | — | — | — | — |
+| ac-0207 | The device boots in dry-run on every power-up (shows DRY-RUN, sends no write commands); live control is enabled only for the current session by an explicit serial command with a confirmation phrase, and is shown on screen. | [ ] unchecked | — | — | — | — |
 | ac-0208 | `docs/how/esp32-bridge.md` covers flash, pairing, Wi-Fi setup, going live, and cut-over/rollback with the Mac daemon; README links it. | [ ] unchecked | — | — | — | — |
 | ac-0209 | The screen dims after inactivity and wakes on the next knob event or status change. | [ ] unchecked | — | — | — | — |
 

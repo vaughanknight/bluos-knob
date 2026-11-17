@@ -41,7 +41,7 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 | tk-2204 | RED: capture real /Volume and /Status XML via the existing read-only harness into tests/fixtures/bluos/; native parser tests | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2204](#tk-2204) | Fixture-backed tests fail before parser exists | — | [ac-0205](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2205 | GREEN: BluOS XML field extraction + read-only HTTP adapter polling with backoff (no retry storms) | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2205](#tk-2205) | Parser tests green; adapter backs off when amp unreachable | — | [ac-0205](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2206 | Screen v2: idle dB + source + Wi-Fi/knob icons, plain-language faults, dim after inactivity / wake on event (dim timer in core, fake-clock tested) | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2206](#tk-2206) | All states render; dim/wake tested natively | — | [ac-0205](../../../plan.dd.md#acceptance-criteria), [ac-0209](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2207 | Hardware smoke: provision Wi-Fi, live volume/source shown; wrong host shows fault; dim + wake observed | — | — | [ ] unchecked | — | — | [ ] 0/3 [tk-2207](#tk-2207) | Recorded in execution log | — | [ac-0204](../../../plan.dd.md#acceptance-criteria), [ac-0205](../../../plan.dd.md#acceptance-criteria), [ac-0209](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2207 | Hardware smoke: provision Wi-Fi, live volume/source shown; wrong host shows fault; dim + wake observed; 5 knob power-cycles and 3 Wi-Fi AP drops with gesture counts and min free heap logged | — | — | [ ] unchecked | — | — | [ ] 0/4 [tk-2207](#tk-2207) | Recorded in execution log; no resets, no progressive heap loss | — | [ac-0204](../../../plan.dd.md#acceptance-criteria), [ac-0205](../../../plan.dd.md#acceptance-criteria), [ac-0209](../../../plan.dd.md#acceptance-criteria) | — |
 
 <a id="done-when"></a>
 
@@ -95,3 +95,4 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 | dw-2070 | Screen shows current amp dB | [ ] unchecked | not-applicable |
 | dw-2071 | Fault shown for unreachable host | [ ] unchecked | not-applicable |
 | dw-2072 | Dim then wake on knob turn | [ ] unchecked | not-applicable |
+| dw-2073 | All gestures counted after each reconnect; no reset; min free heap stable | [ ] unchecked | not-applicable |

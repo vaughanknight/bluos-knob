@@ -78,7 +78,7 @@
         },
         {
           "id": "ac-0207",
-          "claim": "The device boots in dry-run (shows DRY-RUN, sends no write commands); live control is enabled only by an explicit serial command and is shown on screen.",
+          "claim": "The device boots in dry-run on every power-up (shows DRY-RUN, sends no write commands); live control is enabled only for the current session by an explicit serial command with a confirmation phrase, and is shown on screen.",
           "state": "unchecked"
         },
         {

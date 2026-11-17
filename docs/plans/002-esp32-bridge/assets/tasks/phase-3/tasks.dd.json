@@ -21,7 +21,7 @@
       "value": [
         {
           "id": "tk-2301",
-          "title": "RED: native policy tests with Test Doc blocks: action→command table, increase refused past max_db, decrease always allowed, source switch sets safe dB, dry-run emits no writes (fake BluOS transport)",
+          "title": "RED: native policy/executor tests with Test Doc blocks (fake BluOS transport + fake clock): action→command table; every step does a fresh successful /Volume read first and refuses on missing/invalid dB; increase refused past max_db incl. amp changed externally since last poll; decrease allowed; mute toggle reads fresh mute state; source switch sets safe dB; dry-run emits no writes; events older than 1 s or queued before a live/dry-run or link transition are dropped; a write with a lost/timed-out response is never retried; command-path backoff after failures",
           "state": "unchecked",
           "done": "#done_when/tk-2301",
           "success": "Tests fail before policy exists",
@@ -32,7 +32,7 @@
         },
         {
           "id": "tk-2302",
-          "title": "GREEN: knob_core policy + executor; BluOS write adapter (/Volume?db=, /Volume?mute=, /Play?inputTypeIndex=, Spotify via sources lookup + /Play?url=, /Volume?abs_db=)",
+          "title": "GREEN: knob_core policy + executor (fresh read before each write, fail closed, no write replay, stale-event expiry); BluOS write adapter (/Volume?db=, /Volume?mute=, /Play?inputTypeIndex=, Spotify via sources lookup + /Play?url=, /Volume?abs_db=)",
           "state": "unchecked",
           "done": "#done_when/tk-2302",
           "success": "Policy tests green; adapter mirrors scripts/bluos_*.py endpoints",
@@ -54,10 +54,10 @@
         },
         {
           "id": "tk-2304",
-          "title": "Live switch: serial `live on` requires typing a confirmation phrase, persists in NVS, boots dry-run if config invalid; `live off` instant",
+          "title": "Live switch: serial `live on` requires typing a confirmation phrase; live is session-only (never persisted: every boot is DRY-RUN); `live off` instant; switching mode flushes the event queue",
           "state": "unchecked",
           "done": "#done_when/tk-2304",
-          "success": "Live mode only after explicit confirm; badge reflects it",
+          "success": "Live mode only after explicit confirm; badge reflects it; reboot returns to DRY-RUN",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0207"
           ]
@@ -95,6 +95,12 @@
             "assertion": "just fw-test red on policy assertions",
             "state": "unchecked",
             "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-3011",
+            "assertion": "Lost-response, stale-event, overflow-burst and dry-run→live cases present",
+            "state": "unchecked",
+            "pressure": "not-applicable"
           }
         ],
         "tk-2302": [
@@ -122,13 +128,19 @@
         "tk-2304": [
           {
             "id": "dw-3040",
-            "assertion": "Device boots DRY-RUN by default",
+            "assertion": "Device boots DRY-RUN, including after a confirmed `live on` + reboot",
             "state": "unchecked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-3041",
             "assertion": "`live on` without phrase refused",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-3042",
+            "assertion": "Queue flushed on mode change",
             "state": "unchecked",
             "pressure": "not-applicable"
           }
