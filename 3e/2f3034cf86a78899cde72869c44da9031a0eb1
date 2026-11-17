@@ -1,0 +1,29 @@
+firmware/src/bluos_client.cpp
+  s_dd51bf282723cd::t_e320f5e7a59833 83-88
+  s_dd51bf282723cd::t_c7d914a3705878 56-65,71,89-94
+firmware/src/main.cpp
+  s_dd51bf282723cd::t_c7d914a3705878 46-69,108-116,129-131,145-146,148,150,166,181,184-185,199-200,234
+  s_dd51bf282723cd::t_e320f5e7a59833 135-138
+firmware/src/bluos_client.h
+  s_dd51bf282723cd::t_c7d914a3705878 14
+docs/plans/002-esp32-bridge/assets/tasks/phase-2/execution.log.md
+  s_dd51bf282723cd::t_ec35b054486be4 39-43
+docs/plans/002-esp32-bridge/assets/tasks/phase-2/reviews/review.phase-2.md
+  s_dd51bf282723cd::t_48f6784301427c 1-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "3e2f3034cf86a78899cde72869c44da9031a0eb1",
+  "prompts": {},
+  "sessions": {
+    "s_dd51bf282723cd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "58b2a6ea-9d92-4cfd-b554-854a81529448",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "Vaughan Knight <252951+vaughanknight@users.noreply.github.com>"
+    }
+  }
+}
