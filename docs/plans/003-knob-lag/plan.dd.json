@@ -177,7 +177,41 @@
     },
     {
       "name": "acceptance_coverage",
-      "value": []
+      "value": [
+        {
+          "ac": "ac-0301",
+          "covered_by": [
+            "tk-3101",
+            "tk-3102",
+            "tk-3103"
+          ]
+        },
+        {
+          "ac": "ac-0302",
+          "covered_by": [
+            "tk-3101",
+            "tk-3102"
+          ]
+        },
+        {
+          "ac": "ac-0303",
+          "covered_by": [
+            "tk-3103"
+          ]
+        },
+        {
+          "ac": "ac-0304",
+          "covered_by": [
+            "tk-3104"
+          ]
+        },
+        {
+          "ac": "ac-0305",
+          "covered_by": [
+            "tk-3105"
+          ]
+        }
+      ]
     }
   ]
 }

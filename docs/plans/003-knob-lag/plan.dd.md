@@ -127,4 +127,10 @@ Diagnosis from the firmware (meeting prime, tmwk885d1c 21:56Z): amp_control.cpp 
 
 ## Acceptance Coverage Map
 
-_No entries._
+| ac | covered_by | verified_in |
+| --- | --- | --- |
+| ac-0301 | tk-3101, tk-3102, tk-3103 | — |
+| ac-0302 | tk-3101, tk-3102 | — |
+| ac-0303 | tk-3103 | — |
+| ac-0304 | tk-3104 | — |
+| ac-0305 | tk-3105 | — |

@@ -76,7 +76,66 @@
     },
     {
       "name": "done_when",
-      "value": {}
+      "value": {
+        "tk-3101": [
+          {
+            "id": "dw-1010",
+            "assertion": "just fw-test red on the new assertions",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-3102": [
+          {
+            "id": "dw-1020",
+            "assertion": "just fw-test green",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-3103": [
+          {
+            "id": "dw-1030",
+            "assertion": "pio run green",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1031",
+            "assertion": "Serial: one volume_step line per burst with net step",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-3104": [
+          {
+            "id": "dw-1040",
+            "assertion": "Code: ui_render gated on idle",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-3105": [
+          {
+            "id": "dw-1050",
+            "assertion": "Coalesced steps seen",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1051",
+            "assertion": "control_dropped unchanged",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1052",
+            "assertion": "Vaughan: responsive",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ]
+      }
     }
   ]
 }
