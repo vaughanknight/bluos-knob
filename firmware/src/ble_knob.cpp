@@ -29,6 +29,11 @@ std::atomic<bool> g_found{false};
 std::atomic<bool> g_diag{false};
 std::atomic<bool> g_link_up{false};
 std::atomic<bool> g_attempt_ended{false};
+std::atomic<bool> g_subscribed{false};
+// Written by the scan callback only while g_found is false; read by loop() only after it is true.
+NimBLEAddress g_found_addr;
+char g_found_name[32] = {0};
+// Loop-owned.
 NimBLEAddress g_target;
 String g_peer_name;
 NimBLEClient* g_client = nullptr;
@@ -64,10 +69,9 @@ class ScanCallbacks : public NimBLEScanCallbacks {
             return;
         }
         if (g_found || !name_matches(dev->getName())) return;
-        g_target = dev->getAddress();
-        g_peer_name = dev->getName().c_str();
-        g_found = true;
-        NimBLEDevice::getScan()->stop();
+        g_found_addr = dev->getAddress();
+        strlcpy(g_found_name, dev->getName().c_str(), sizeof(g_found_name));
+        g_found = true;  // loop() stops the scan; stopping here frees results NimBLE still reads
     }
 } g_scan_callbacks;
 
@@ -80,6 +84,7 @@ class ClientCallbacks : public NimBLEClientCallbacks {
     void onDisconnect(NimBLEClient*, int reason) override {
         Serial.printf("{\"knob\":\"disconnected\",\"reason\":%d}\n", reason);
         g_link_up = false;
+        g_subscribed = false;
         g_attempt_ended = true;
     }
 } g_client_callbacks;
@@ -100,6 +105,10 @@ bool bonded_target(NimBLEAddress* out) {
 }
 
 void start_connect(const NimBLEAddress& addr) {
+    if (client()->isConnected()) {  // never stack a connect on a live link
+        g_link = g_subscribed ? KnobLink::Connected : KnobLink::Connecting;
+        return;
+    }
     g_target = addr;
     g_link_up = false;
     g_attempt_ended = false;
@@ -129,7 +138,8 @@ bool secure_and_subscribe() {
     }
     Serial.printf("{\"knob\":\"connected\",\"name\":\"%s\",\"addr\":\"%s\",\"reports\":%d}\n",
                   g_peer_name.c_str(), g_target.toString().c_str(), subscribed);
-    return subscribed > 0;
+    g_subscribed = subscribed > 0;
+    return g_subscribed;
 }
 
 }  // namespace
@@ -187,7 +197,9 @@ void BleKnob::loop() {
             return;
         case KnobLink::Scanning:
             if (g_found) {
-                start_connect(g_target);
+                NimBLEDevice::getScan()->stop();
+                g_peer_name = g_found_name;
+                start_connect(g_found_addr);
             } else if (!NimBLEDevice::getScan()->isScanning()) {
                 g_link = KnobLink::Disconnected;
                 g_next_attempt_ms = now + kRetryMs;
@@ -213,7 +225,12 @@ void BleKnob::loop() {
 
 void BleKnob::diag_scan(uint32_t ms) {
     NimBLEClient* c = client();
-    if (g_link == KnobLink::Connecting) c->cancelConnect();
+    if (g_link == KnobLink::Connecting && !c->isConnected()) {
+        c->cancelConnect();
+        // The radio stays busy until the cancel completes (onConnectFail); scanning before that fails.
+        const uint32_t start = millis();
+        while (!g_attempt_ended && millis() - start < 2000) delay(10);
+    }
     g_diag = true;
     NimBLEScan* scan = NimBLEDevice::getScan();
     scan->setActiveScan(false);
@@ -223,8 +240,14 @@ void BleKnob::diag_scan(uint32_t ms) {
     scan->setActiveScan(true);
     g_diag = false;
     Serial.println("{\"diag\":\"scan_end\"}");
-    g_link = KnobLink::Disconnected;
-    g_next_attempt_ms = 0;
+    // Re-derive the link from the client rather than assuming the scan broke it.
+    if (c->isConnected()) {
+        g_link = g_subscribed ? KnobLink::Connected : KnobLink::Connecting;
+        g_link_up = true;
+    } else {
+        g_link = KnobLink::Disconnected;
+        g_next_attempt_ms = 0;
+    }
 }
 
 void BleKnob::clear_bonds() {

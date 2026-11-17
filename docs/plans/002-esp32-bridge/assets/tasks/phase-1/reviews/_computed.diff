@@ -1,0 +1,801 @@
+diff --git a/firmware/.gitignore b/firmware/.gitignore
+new file mode 100644
+index 0000000..66fc7a3
+--- /dev/null
++++ b/firmware/.gitignore
+@@ -0,0 +1 @@
++.pio/
+diff --git a/firmware/lib/knob_core/src/decoder.cpp b/firmware/lib/knob_core/src/decoder.cpp
+new file mode 100644
+index 0000000..92c6607
+--- /dev/null
++++ b/firmware/lib/knob_core/src/decoder.cpp
+@@ -0,0 +1,61 @@
++#include "decoder.h"
++
++namespace knob {
++namespace {
++
++struct UsageMapping {
++    uint16_t usage;
++    Action action;
++};
++
++// Same table as normalizer.py CONSUMER_USAGE_TO_ACTION.
++constexpr UsageMapping kUsageTable[] = {
++    {0x00E9, Action::VolumeUp},     {0x00EA, Action::VolumeDown},
++    {0x00E2, Action::MuteToggle},   {0x006F, Action::BrightnessUp},
++    {0x0070, Action::BrightnessDown},
++};
++
++bool is_release(const uint8_t* data, size_t len) {
++    if (data == nullptr || len == 0) return true;
++    bool rest_zero = true;
++    for (size_t i = 1; i < len; ++i) rest_zero = rest_zero && data[i] == 0;
++    if (data[0] == 0 && rest_zero) return true;
++    return len > 2 && data[0] != 0 && rest_zero;
++}
++
++bool lookup(uint16_t usage, Action* out) {
++    for (const auto& m : kUsageTable) {
++        if (m.usage == usage) {
++            *out = m.action;
++            return true;
++        }
++    }
++    return false;
++}
++
++}  // namespace
++
++Decoded decode_report(const uint8_t* data, size_t len) {
++    if (is_release(data, len)) return {Action::NoOp, 0};
++    for (size_t i = 0; i + 1 < len; ++i) {
++        const uint16_t candidate = static_cast<uint16_t>(data[i] | (data[i + 1] << 8));
++        Action action;
++        if (lookup(candidate, &action)) return {action, candidate};
++    }
++    return {Action::Unknown, 0};
++}
++
++const char* action_name(Action action) {
++    switch (action) {
++        case Action::VolumeUp: return "volume_up";
++        case Action::VolumeDown: return "volume_down";
++        case Action::MuteToggle: return "mute_toggle";
++        case Action::BrightnessUp: return "brightness_up";
++        case Action::BrightnessDown: return "brightness_down";
++        case Action::NoOp: return "no_op";
++        case Action::Unknown: break;
++    }
++    return "unknown";
++}
++
++}  // namespace knob
+diff --git a/firmware/lib/knob_core/src/decoder.h b/firmware/lib/knob_core/src/decoder.h
+new file mode 100644
+index 0000000..20f47a6
+--- /dev/null
++++ b/firmware/lib/knob_core/src/decoder.h
+@@ -0,0 +1,28 @@
++// Portable knob report decoder: raw HID consumer-control bytes -> knob action.
++// Mirrors src/bluos_knob/device_input/normalizer.py. No Arduino dependencies.
++#pragma once
++
++#include <cstddef>
++#include <cstdint>
++
++namespace knob {
++
++enum class Action {
++    Unknown,
++    NoOp,  // key release
++    VolumeUp,
++    VolumeDown,
++    MuteToggle,
++    BrightnessUp,
++    BrightnessDown,
++};
++
++struct Decoded {
++    Action action;
++    uint16_t usage;  // matched consumer usage, 0 when none
++};
++
++Decoded decode_report(const uint8_t* data, size_t len);
++const char* action_name(Action action);
++
++}  // namespace knob
+diff --git a/firmware/platformio.ini b/firmware/platformio.ini
+new file mode 100644
+index 0000000..66b7c37
+--- /dev/null
++++ b/firmware/platformio.ini
+@@ -0,0 +1,28 @@
++; BluOS Knob firmware for M5StickC-class boards (ESP32-PICO-D4).
++; Run through the justfile (`just fw-build`, `just fw-test`, ...): it invokes
++; PlatformIO via uvx so nothing is installed globally.
++
++[platformio]
++default_envs = m5stick
++
++[env:m5stick]
++platform = espressif32
++board = m5stick-c
++framework = arduino
++monitor_speed = 115200
++lib_deps =
++    m5stack/M5Unified@^0.2.2
++    h2zero/NimBLE-Arduino@^2.1.0
++build_flags =
++    -std=gnu++17
++build_unflags =
++    -std=gnu++11
++
++; Host-native tests for the portable core in lib/knob_core (no Arduino, no hardware).
++[env:native]
++platform = native
++test_framework = unity
++build_flags =
++    -std=c++17
++    -Wall
++    -Wextra
+diff --git a/firmware/src/ble_knob.cpp b/firmware/src/ble_knob.cpp
+new file mode 100644
+index 0000000..1520b0b
+--- /dev/null
++++ b/firmware/src/ble_knob.cpp
+@@ -0,0 +1,239 @@
++#include "ble_knob.h"
++
++#include <NimBLEDevice.h>
++
++#include <atomic>
++
++// Connection strategy:
++// - Not bonded: scan (controller duplicate filter OFF, so a device seen once is
++//   reported again on later scans) for an advertiser whose name matches the hint.
++// - Bonded: skip scanning and keep an async direct connect pending to the bonded
++//   address; it completes whenever the knob wakes and advertises.
++// NimBLE callbacks run on the host task and only set flags or enqueue reports;
++// blocking work (encryption, discovery, subscribe) runs from loop().
++
++namespace {
++
++constexpr uint16_t kHidService = 0x1812;
++constexpr uint16_t kHidReport = 0x2A4D;
++constexpr uint32_t kScanMs = 10000;
++constexpr uint32_t kConnectTimeoutMs = 30000;
++constexpr uint32_t kRetryMs = 500;
++
++QueueHandle_t g_queue = nullptr;
++String g_name_hint;
++std::atomic<KnobLink> g_link{KnobLink::Idle};
++std::atomic<uint32_t> g_overflow{0};
++std::atomic<uint32_t> g_reconnects{0};
++std::atomic<bool> g_found{false};
++std::atomic<bool> g_diag{false};
++std::atomic<bool> g_link_up{false};
++std::atomic<bool> g_attempt_ended{false};
++NimBLEAddress g_target;
++String g_peer_name;
++NimBLEClient* g_client = nullptr;
++uint32_t g_next_attempt_ms = 0;
++
++void on_report(NimBLERemoteCharacteristic*, uint8_t* data, size_t len, bool) {
++    KnobEvent ev{};
++    ev.at_ms = millis();
++    ev.len = static_cast<uint8_t>(len > sizeof(ev.data) ? sizeof(ev.data) : len);
++    memcpy(ev.data, data, ev.len);
++    if (xQueueSend(g_queue, &ev, 0) != pdTRUE) g_overflow++;  // drop newest, never block the host task
++}
++
++bool name_matches(const std::string& name) {
++    String n(name.c_str());
++    n.toUpperCase();
++    String hint = g_name_hint;
++    hint.toUpperCase();
++    return hint.length() > 0 && n.indexOf(hint) >= 0;
++}
++
++class ScanCallbacks : public NimBLEScanCallbacks {
++    void onResult(const NimBLEAdvertisedDevice* dev) override {
++        if (g_diag) {
++            if (dev->getRSSI() < -75 && !name_matches(dev->getName()) &&
++                !NimBLEDevice::isBonded(dev->getAddress()))
++                return;
++            Serial.printf("{\"adv\":\"%s\",\"type\":%d,\"adv_type\":%d,\"name\":\"%s\",\"rssi\":%d,"
++                          "\"connectable\":%d,\"bonded\":%d}\n",
++                          dev->getAddress().toString().c_str(), dev->getAddress().getType(),
++                          dev->getAdvType(), dev->getName().c_str(), dev->getRSSI(),
++                          dev->isConnectable(), NimBLEDevice::isBonded(dev->getAddress()));
++            return;
++        }
++        if (g_found || !name_matches(dev->getName())) return;
++        g_target = dev->getAddress();
++        g_peer_name = dev->getName().c_str();
++        g_found = true;
++        NimBLEDevice::getScan()->stop();
++    }
++} g_scan_callbacks;
++
++class ClientCallbacks : public NimBLEClientCallbacks {
++    void onConnect(NimBLEClient*) override { g_link_up = true; }
++    void onConnectFail(NimBLEClient*, int reason) override {
++        Serial.printf("{\"knob\":\"connect_failed\",\"reason\":%d}\n", reason);
++        g_attempt_ended = true;
++    }
++    void onDisconnect(NimBLEClient*, int reason) override {
++        Serial.printf("{\"knob\":\"disconnected\",\"reason\":%d}\n", reason);
++        g_link_up = false;
++        g_attempt_ended = true;
++    }
++} g_client_callbacks;
++
++NimBLEClient* client() {
++    if (g_client == nullptr) {
++        g_client = NimBLEDevice::createClient();
++        g_client->setClientCallbacks(&g_client_callbacks, false);
++        g_client->setConnectTimeout(kConnectTimeoutMs);
++    }
++    return g_client;
++}
++
++bool bonded_target(NimBLEAddress* out) {
++    if (NimBLEDevice::getNumBonds() == 0) return false;
++    *out = NimBLEDevice::getBondedAddress(0);
++    return true;
++}
++
++void start_connect(const NimBLEAddress& addr) {
++    g_target = addr;
++    g_link_up = false;
++    g_attempt_ended = false;
++    g_link = KnobLink::Connecting;
++    if (!client()->connect(addr, true, true)) {  // async: completes via callbacks
++        g_attempt_ended = true;
++    }
++}
++
++bool secure_and_subscribe() {
++    NimBLEClient* c = client();
++    if (!c->secureConnection()) {
++        Serial.println("{\"knob\":\"secure_failed\"}");
++        return false;
++    }
++    NimBLERemoteService* hid = c->getService(NimBLEUUID(kHidService));
++    if (hid == nullptr) {
++        Serial.println("{\"knob\":\"no_hid_service\"}");
++        return false;
++    }
++    int subscribed = 0;
++    for (NimBLERemoteCharacteristic* chr : hid->getCharacteristics(true)) {
++        if (chr->getUUID() == NimBLEUUID(kHidReport) && chr->canNotify() &&
++            chr->subscribe(true, on_report)) {
++            subscribed++;
++        }
++    }
++    Serial.printf("{\"knob\":\"connected\",\"name\":\"%s\",\"addr\":\"%s\",\"reports\":%d}\n",
++                  g_peer_name.c_str(), g_target.toString().c_str(), subscribed);
++    return subscribed > 0;
++}
++
++}  // namespace
++
++const char* knob_link_name(KnobLink link) {
++    switch (link) {
++        case KnobLink::Idle: return "idle";
++        case KnobLink::Scanning: return "scanning";
++        case KnobLink::Connecting: return "connecting";
++        case KnobLink::Connected: return "connected";
++        case KnobLink::Disconnected: return "disconnected";
++    }
++    return "unknown";
++}
++
++void BleKnob::begin(QueueHandle_t queue, const char* name_hint) {
++    g_queue = queue;
++    g_name_hint = name_hint;
++    NimBLEDevice::init("bluos-knob");
++    NimBLEDevice::setSecurityAuth(true, false, true);  // bond, no MITM, secure connections
++    NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
++    NimBLEScan* scan = NimBLEDevice::getScan();
++    scan->setScanCallbacks(&g_scan_callbacks, false);
++    scan->setActiveScan(true);
++    scan->setDuplicateFilter(0);
++    scan->setMaxResults(0);
++    scan->setInterval(100);
++    scan->setWindow(99);
++    g_link = KnobLink::Disconnected;
++}
++
++void BleKnob::loop() {
++    const uint32_t now = millis();
++    switch (g_link.load()) {
++        case KnobLink::Connected:
++            if (g_attempt_ended) {  // disconnected
++                g_link = KnobLink::Disconnected;
++                g_next_attempt_ms = now + kRetryMs;
++            }
++            return;
++        case KnobLink::Connecting:
++            if (g_link_up) {
++                if (secure_and_subscribe()) {
++                    g_link = KnobLink::Connected;
++                    g_reconnects++;
++                } else {
++                    client()->disconnect();
++                    g_link = KnobLink::Disconnected;
++                    g_next_attempt_ms = now + kRetryMs;
++                }
++            } else if (g_attempt_ended) {
++                g_link = KnobLink::Disconnected;
++                g_next_attempt_ms = now + kRetryMs;
++            }
++            return;
++        case KnobLink::Scanning:
++            if (g_found) {
++                start_connect(g_target);
++            } else if (!NimBLEDevice::getScan()->isScanning()) {
++                g_link = KnobLink::Disconnected;
++                g_next_attempt_ms = now + kRetryMs;
++            }
++            return;
++        case KnobLink::Idle:
++        case KnobLink::Disconnected:
++            break;
++    }
++    if (static_cast<int32_t>(now - g_next_attempt_ms) < 0) return;
++    NimBLEAddress bonded;
++    if (bonded_target(&bonded)) {
++        start_connect(bonded);
++        return;
++    }
++    g_found = false;
++    g_link = KnobLink::Scanning;
++    if (!NimBLEDevice::getScan()->start(kScanMs, false, true)) {
++        g_link = KnobLink::Disconnected;
++        g_next_attempt_ms = now + kRetryMs;
++    }
++}
++
++void BleKnob::diag_scan(uint32_t ms) {
++    NimBLEClient* c = client();
++    if (g_link == KnobLink::Connecting) c->cancelConnect();
++    g_diag = true;
++    NimBLEScan* scan = NimBLEDevice::getScan();
++    scan->setActiveScan(false);
++    Serial.printf("{\"diag\":\"scan_start\",\"ms\":%lu,\"bonds\":%d}\n", static_cast<unsigned long>(ms),
++                  NimBLEDevice::getNumBonds());
++    scan->getResults(ms, false);  // blocking
++    scan->setActiveScan(true);
++    g_diag = false;
++    Serial.println("{\"diag\":\"scan_end\"}");
++    g_link = KnobLink::Disconnected;
++    g_next_attempt_ms = 0;
++}
++
++void BleKnob::clear_bonds() {
++    if (g_client != nullptr && g_client->isConnected()) g_client->disconnect();
++    NimBLEDevice::deleteAllBonds();
++    Serial.println("{\"knob\":\"bonds_cleared\"}");
++}
++
++KnobLink BleKnob::link() const { return g_link; }
++uint32_t BleKnob::overflow_count() const { return g_overflow; }
++uint32_t BleKnob::reconnects() const { return g_reconnects; }
++String BleKnob::peer_name() const { return g_peer_name; }
+diff --git a/firmware/src/ble_knob.h b/firmware/src/ble_knob.h
+new file mode 100644
+index 0000000..309b93f
+--- /dev/null
++++ b/firmware/src/ble_knob.h
+@@ -0,0 +1,27 @@
++// BLE HID host adapter for the Anticater knob (HOGP central via NimBLE).
++// The NimBLE callbacks only enqueue raw reports; all decoding/policy runs in the app task.
++#pragma once
++
++#include <Arduino.h>
++#include <freertos/FreeRTOS.h>
++#include <freertos/queue.h>
++
++#include "knob_event.h"
++
++enum class KnobLink { Idle, Scanning, Connecting, Connected, Disconnected };
++
++const char* knob_link_name(KnobLink link);
++
++class BleKnob {
++   public:
++    // name_hint: case-insensitive substring of the advertised name (e.g. "ANTICATER").
++    void begin(QueueHandle_t queue, const char* name_hint);
++    void loop();
++    void clear_bonds();
++    void diag_scan(uint32_t ms);  // log nearby advertisers (blocking)
++
++    KnobLink link() const;
++    uint32_t overflow_count() const;
++    uint32_t reconnects() const;
++    String peer_name() const;
++};
+diff --git a/firmware/src/display_ui.cpp b/firmware/src/display_ui.cpp
+new file mode 100644
+index 0000000..603aebf
+--- /dev/null
++++ b/firmware/src/display_ui.cpp
+@@ -0,0 +1,78 @@
++#include "display_ui.h"
++
++#include <M5Unified.h>
++
++namespace {
++
++UiState g_drawn{};
++bool g_first = true;
++
++uint16_t link_colour(KnobLink link) {
++    switch (link) {
++        case KnobLink::Connected: return TFT_GREEN;
++        case KnobLink::Scanning:
++        case KnobLink::Connecting: return TFT_YELLOW;
++        default: return TFT_RED;
++    }
++}
++
++const char* action_label(knob::Action action) {
++    switch (action) {
++        case knob::Action::VolumeUp: return "VOL +";
++        case knob::Action::VolumeDown: return "VOL -";
++        case knob::Action::MuteToggle: return "MUTE";
++        case knob::Action::BrightnessUp: return "SRC: Spotify";
++        case knob::Action::BrightnessDown: return "SRC: Optical";
++        case knob::Action::NoOp: return "-";
++        case knob::Action::Unknown: return "?";
++    }
++    return "?";
++}
++
++bool same(const UiState& a, const UiState& b) {
++    return a.link == b.link && a.last_action == b.last_action && a.events == b.events &&
++           a.overflow == b.overflow;
++}
++
++}  // namespace
++
++void ui_begin() {
++    M5.Display.setRotation(1);
++    M5.Display.setTextDatum(textdatum_t::top_left);
++    M5.Display.fillScreen(TFT_BLACK);
++}
++
++void ui_render(const UiState& s) {
++    if (!g_first && same(s, g_drawn)) return;
++    g_first = false;
++    g_drawn = s;
++
++    auto& d = M5.Display;
++    const int w = d.width();
++    const int h = d.height();
++    const bool small = h < 100;  // StickC 80x160 vs StickC Plus 135x240
++
++    d.startWrite();
++    d.fillScreen(TFT_BLACK);
++
++    d.setTextSize(1);
++    d.setTextColor(TFT_DARKGREY, TFT_BLACK);
++    d.drawString("BluOS Knob", 2, 2);
++    d.drawRightString(s.board, w - 2, 2);
++
++    d.fillCircle(6, small ? 18 : 22, 4, link_colour(s.link));
++    d.setTextColor(TFT_WHITE, TFT_BLACK);
++    d.drawString(String("knob ") + knob_link_name(s.link), 14, small ? 14 : 18);
++
++    d.setTextSize(small ? 2 : 3);
++    d.setTextDatum(textdatum_t::middle_center);
++    d.drawString(action_label(s.last_action), w / 2, h / 2 + (small ? 4 : 6));
++    d.setTextDatum(textdatum_t::top_left);
++
++    d.setTextSize(1);
++    d.setTextColor(TFT_DARKGREY, TFT_BLACK);
++    String footer = String("events ") + s.events;
++    if (s.overflow) footer += String("  dropped ") + s.overflow;
++    d.drawString(footer, 2, h - 10);
++    d.endWrite();
++}
+diff --git a/firmware/src/display_ui.h b/firmware/src/display_ui.h
+new file mode 100644
+index 0000000..1eca4bc
+--- /dev/null
++++ b/firmware/src/display_ui.h
+@@ -0,0 +1,18 @@
++// On-device screen. Reads app state only; never drives control.
++#pragma once
++
++#include <Arduino.h>
++
++#include "ble_knob.h"
++#include "decoder.h"
++
++struct UiState {
++    const char* board;
++    KnobLink link;
++    knob::Action last_action;
++    uint32_t events;
++    uint32_t overflow;
++};
++
++void ui_begin();
++void ui_render(const UiState& state);
+diff --git a/firmware/src/knob_event.h b/firmware/src/knob_event.h
+new file mode 100644
+index 0000000..7418396
+--- /dev/null
++++ b/firmware/src/knob_event.h
+@@ -0,0 +1,11 @@
++#pragma once
++
++#include <cstddef>
++#include <cstdint>
++
++// Raw knob report handed from the BLE host task to the app task.
++struct KnobEvent {
++    uint32_t at_ms;
++    uint8_t len;
++    uint8_t data[8];
++};
+diff --git a/firmware/src/main.cpp b/firmware/src/main.cpp
+new file mode 100644
+index 0000000..eca4207
+--- /dev/null
++++ b/firmware/src/main.cpp
+@@ -0,0 +1,105 @@
++#include <Arduino.h>
++#include <M5Unified.h>
++
++#include "ble_knob.h"
++#include "decoder.h"
++#include "display_ui.h"
++#include "knob_event.h"
++
++namespace {
++
++constexpr size_t kQueueDepth = 16;
++constexpr const char* kKnobNameHint = "ANTICATER";
++
++QueueHandle_t g_events = nullptr;
++BleKnob g_knob;
++UiState g_ui{};
++String g_line;
++
++const char* board_name() {
++    switch (M5.getBoard()) {
++        case m5::board_t::board_M5StickC: return "StickC";
++        case m5::board_t::board_M5StickCPlus: return "StickC+";
++        case m5::board_t::board_M5StickCPlus2: return "StickC+2";
++        default: return "M5";
++    }
++}
++
++String hex(const uint8_t* data, size_t len) {
++    static const char* digits = "0123456789abcdef";
++    String out;
++    for (size_t i = 0; i < len; ++i) {
++        out += digits[data[i] >> 4];
++        out += digits[data[i] & 0x0F];
++    }
++    return out;
++}
++
++void handle_event(const KnobEvent& ev) {
++    const knob::Decoded decoded = knob::decode_report(ev.data, ev.len);
++    if (decoded.action == knob::Action::NoOp) return;
++    g_ui.events++;
++    g_ui.last_action = decoded.action;
++    Serial.printf("{\"seq\":%lu,\"action\":\"%s\",\"raw\":\"%s\",\"usage\":\"0x%04x\",\"t_ms\":%lu}\n",
++                  static_cast<unsigned long>(g_ui.events), knob::action_name(decoded.action),
++                  hex(ev.data, ev.len).c_str(), decoded.usage, static_cast<unsigned long>(ev.at_ms));
++}
++
++void handle_command(const String& cmd) {
++    if (cmd == "scan") {
++        g_knob.diag_scan(15000);
++    } else if (cmd == "bonds clear") {
++        g_knob.clear_bonds();
++    } else if (cmd == "status") {
++        Serial.printf("{\"board\":\"%s\",\"knob\":\"%s\",\"peer\":\"%s\",\"events\":%lu,\"dropped\":%lu,"
++                      "\"reconnects\":%lu,\"free_heap\":%lu,\"min_free_heap\":%lu}\n",
++                      board_name(), knob_link_name(g_knob.link()), g_knob.peer_name().c_str(),
++                      static_cast<unsigned long>(g_ui.events),
++                      static_cast<unsigned long>(g_knob.overflow_count()),
++                      static_cast<unsigned long>(g_knob.reconnects()),
++                      static_cast<unsigned long>(ESP.getFreeHeap()),
++                      static_cast<unsigned long>(ESP.getMinFreeHeap()));
++    } else if (cmd.length() > 0) {
++        Serial.printf("{\"error\":\"unknown command\",\"commands\":[\"status\",\"scan\",\"bonds clear\"]}\n");
++    }
++}
++
++void poll_serial() {
++    while (Serial.available() > 0) {
++        const char c = static_cast<char>(Serial.read());
++        if (c == '\n' || c == '\r') {
++            g_line.trim();
++            handle_command(g_line);
++            g_line = "";
++        } else if (g_line.length() < 128) {
++            g_line += c;
++        }
++    }
++}
++
++}  // namespace
++
++void setup() {
++    auto cfg = M5.config();
++    cfg.serial_baudrate = 115200;
++    M5.begin(cfg);
++    g_events = xQueueCreate(kQueueDepth, sizeof(KnobEvent));
++    g_ui.board = board_name();
++    g_ui.last_action = knob::Action::NoOp;
++    ui_begin();
++    Serial.printf("{\"boot\":\"bluos-knob\",\"board\":\"%s\",\"free_heap\":%lu}\n", g_ui.board,
++                  static_cast<unsigned long>(ESP.getFreeHeap()));
++    g_knob.begin(g_events, kKnobNameHint);
++}
++
++void loop() {
++    M5.update();
++    g_knob.loop();
++    KnobEvent ev;
++    while (xQueueReceive(g_events, &ev, 0) == pdTRUE) handle_event(ev);
++    poll_serial();
++    g_ui.link = g_knob.link();
++    g_ui.overflow = g_knob.overflow_count();
++    ui_render(g_ui);
++    delay(10);
++}
+diff --git a/firmware/test/test_decoder/test_decoder.cpp b/firmware/test/test_decoder/test_decoder.cpp
+new file mode 100644
+index 0000000..680af26
+--- /dev/null
++++ b/firmware/test/test_decoder/test_decoder.cpp
+@@ -0,0 +1,104 @@
++#include <unity.h>
++
++#include <initializer_list>
++#include <vector>
++
++#include "decoder.h"
++
++using knob::Action;
++using knob::decode_report;
++
++static knob::Decoded decode(std::initializer_list<uint8_t> bytes) {
++    std::vector<uint8_t> v(bytes);
++    return decode_report(v.data(), v.size());
++}
++
++void setUp() {}
++void tearDown() {}
++
++void given_real_capture_reports_with_report_id_when_decoded_then_match_python_normalizer() {
++    /*
++    Test Doc:
++    - Why: The ESP32 must interpret the knob exactly like the Mac daemon, or a turn could mean the wrong command.
++    - Contract: Report-id-3 payloads map to the same actions as normalizer.py CONSUMER_USAGE_TO_ACTION.
++    - Usage Notes: Bytes are the raw report as captured on macOS (report id first, little-endian usage).
++    - Quality Contribution: Catches table drift between the Python and firmware decoders.
++    - Worked Example: 03 e9 00 -> VolumeUp (usage 0x00E9); 03 70 00 -> BrightnessDown.
++    */
++    TEST_ASSERT_EQUAL(Action::VolumeUp, decode({0x03, 0xE9, 0x00}).action);
++    TEST_ASSERT_EQUAL_HEX16(0x00E9, decode({0x03, 0xE9, 0x00}).usage);
++    TEST_ASSERT_EQUAL(Action::VolumeDown, decode({0x03, 0xEA, 0x00}).action);
++    TEST_ASSERT_EQUAL(Action::MuteToggle, decode({0x03, 0xE2, 0x00}).action);
++    TEST_ASSERT_EQUAL(Action::BrightnessUp, decode({0x03, 0x6F, 0x00}).action);
++    TEST_ASSERT_EQUAL(Action::BrightnessDown, decode({0x03, 0x70, 0x00}).action);
++}
++
++void given_ble_payload_without_report_id_when_decoded_then_same_actions() {
++    /*
++    Test Doc:
++    - Why: BLE HID notifications carry the report id out of band, so payloads arrive without it.
++    - Contract: The decoder finds the usage whether or not a leading report id is present.
++    - Usage Notes: Pass the notification value bytes unchanged.
++    - Quality Contribution: Catches a decoder that assumes a fixed offset.
++    - Worked Example: e9 00 -> VolumeUp; ea 00 -> VolumeDown.
++    */
++    TEST_ASSERT_EQUAL(Action::VolumeUp, decode({0xE9, 0x00}).action);
++    TEST_ASSERT_EQUAL(Action::VolumeDown, decode({0xEA, 0x00}).action);
++    TEST_ASSERT_EQUAL(Action::MuteToggle, decode({0xE2, 0x00}).action);
++}
++
++void given_release_reports_when_decoded_then_noop() {
++    /*
++    Test Doc:
++    - Why: Every press is followed by a release; treating it as a command would double-fire.
++    - Contract: Empty, all-zero, and report-id-then-zeros payloads are NoOp with no usage.
++    - Usage Notes: Matches normalizer.py _is_release_report.
++    - Quality Contribution: Catches duplicate volume steps from key-up reports.
++    - Worked Example: 03 00 00 -> NoOp; 00 00 -> NoOp; empty -> NoOp.
++    */
++    TEST_ASSERT_EQUAL(Action::NoOp, decode({0x03, 0x00, 0x00}).action);
++    TEST_ASSERT_EQUAL(Action::NoOp, decode({0x00, 0x00}).action);
++    TEST_ASSERT_EQUAL(Action::NoOp, decode_report(nullptr, 0).action);
++    TEST_ASSERT_EQUAL_HEX16(0, decode({0x03, 0x00, 0x00}).usage);
++}
++
++void given_unmapped_or_truncated_reports_when_decoded_then_unknown() {
++    /*
++    Test Doc:
++    - Why: Unexpected input must never turn into an amplifier command.
++    - Contract: Non-release payloads without a mapped usage decode to Unknown.
++    - Usage Notes: Unknown is ignored by policy; it is logged for diagnosis.
++    - Quality Contribution: Catches a decoder that defaults to a real action.
++    - Worked Example: 03 cd 00 (play/pause, unmapped) -> Unknown; single byte e9 -> Unknown.
++    */
++    TEST_ASSERT_EQUAL(Action::Unknown, decode({0x03, 0xCD, 0x00}).action);
++    TEST_ASSERT_EQUAL(Action::Unknown, decode({0xE9}).action);
++}
++
++void given_actions_when_named_then_match_python_action_values() {
++    /*
++    Test Doc:
++    - Why: Serial log lines should read the same as the Mac daemon's JSON logs.
++    - Contract: action_name returns normalizer.py NormalizedAction values.
++    - Usage Notes: Used in the serial action line and on screen.
++    - Quality Contribution: Keeps logs comparable across both bridges.
++    - Worked Example: VolumeUp -> "volume_up".
++    */
++    TEST_ASSERT_EQUAL_STRING("volume_up", knob::action_name(Action::VolumeUp));
++    TEST_ASSERT_EQUAL_STRING("volume_down", knob::action_name(Action::VolumeDown));
++    TEST_ASSERT_EQUAL_STRING("mute_toggle", knob::action_name(Action::MuteToggle));
++    TEST_ASSERT_EQUAL_STRING("brightness_up", knob::action_name(Action::BrightnessUp));
++    TEST_ASSERT_EQUAL_STRING("brightness_down", knob::action_name(Action::BrightnessDown));
++    TEST_ASSERT_EQUAL_STRING("no_op", knob::action_name(Action::NoOp));
++    TEST_ASSERT_EQUAL_STRING("unknown", knob::action_name(Action::Unknown));
++}
++
++int main() {
++    UNITY_BEGIN();
++    RUN_TEST(given_real_capture_reports_with_report_id_when_decoded_then_match_python_normalizer);
++    RUN_TEST(given_ble_payload_without_report_id_when_decoded_then_same_actions);
++    RUN_TEST(given_release_reports_when_decoded_then_noop);
++    RUN_TEST(given_unmapped_or_truncated_reports_when_decoded_then_unknown);
++    RUN_TEST(given_actions_when_named_then_match_python_action_values);
++    return UNITY_END();
++}
+diff --git a/justfile b/justfile
+index 6545d5d..efc6909 100644
+--- a/justfile
++++ b/justfile
+@@ -3,6 +3,8 @@ bluos_host := env_var_or_default("BLUOS_HOST", "")
+ bluos_port := env_var_or_default("BLUOS_PORT", "11000")
+ daemon_pid := "/tmp/bluos-knob-daemon.pid"
+ daemon_log := "/tmp/bluos-knob-daemon.log"
++pio := "pio"
++fw_port := env_var_or_default("FW_PORT", "")
+ 
+ install:
+     python3 -m pip install -e ".[dev]"
+@@ -102,3 +104,21 @@ lint:
+ smoke:
+     python3 -m bluos_knob.cli.main --help >/dev/null
+     python3 -m bluos_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl >/dev/null
++
++# --- ESP32 firmware (firmware/, plan 002) ---
++
++# Build the M5StickC firmware.
++fw-build:
++    cd firmware && {{pio}} run -e m5stick
++
++# Run the host-native core tests (no hardware).
++fw-test:
++    cd firmware && {{pio}} test -e native
++
++# Flash the firmware over USB (FW_PORT=/dev/cu.usbserial-... to pin the port).
++fw-flash:
++    cd firmware && {{pio}} run -e m5stick -t upload {{ if fw_port != "" { "--upload-port " + fw_port } else { "" } }}
++
++# Open the serial monitor (Ctrl-C to exit).
++fw-monitor:
++    cd firmware && {{pio}} device monitor -b 115200 {{ if fw_port != "" { "-p " + fw_port } else { "" } }}

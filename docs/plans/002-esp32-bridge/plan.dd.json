@@ -49,17 +49,20 @@
         {
           "id": "ac-0201",
           "claim": "`just fw-build` compiles the firmware and `just fw-test` runs the host-native C++ tests green, with no hardware attached.",
-          "state": "unchecked"
+          "state": "checked",
+          "receipt": "just fw-build SUCCESS (RAM 12.9%, Flash 61%); just fw-test 5/5"
         },
         {
           "id": "ac-0202",
           "claim": "The firmware decoder maps every real capture pattern (`03e900` up, `03ea00` down, `03e200` mute, `036f00` brightness-up, `037000` brightness-down, `030000` release) and the report-id-less BLE form (`e900`, `ea00`, …) to the same actions as `normalizer.py`.",
-          "state": "unchecked"
+          "state": "checked",
+          "receipt": "firmware/test/test_decoder: report-id-3 capture vectors, report-id-less BLE form, release, unknown: 5/5 pass"
         },
         {
           "id": "ac-0203",
           "claim": "With the knob bonded to the ESP32, each gesture shows on the screen and as an action line on the serial log, and the device reconnects on its own after the knob sleeps or power-cycles.",
-          "state": "unchecked"
+          "state": "checked",
+          "receipt": "Phase 1 log: all gestures on screen+serial, 0 dropped; auto-reconnect after ESP32 reset (17:29:45), fresh pairing (17:30:30), out-of-range (17:31:16→17:31:21)"
         },
         {
           "id": "ac-0204",

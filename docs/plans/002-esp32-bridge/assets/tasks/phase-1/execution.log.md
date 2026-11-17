@@ -57,3 +57,13 @@
 
 ## Phase 1 complete
 - tk-2101 na (superseded; coexistence proof → tk-2207), tk-2102..2107 checked. AC-01, AC-02, AC-03 met.
+
+## Review fixes + re-test (17:2x)
+- Fixed the 3 review findings (diag-scan state loss, `scan->stop()` in onResult use-after-free, `g_peer_name` race) plus diag scan starting before the connect cancel had finished. Reflashed.
+- `scan` diagnostic now works (15 s of nearby advertisers logged); the knob was not advertising.
+- 17:28 `system_profiler`: **ANTICATER_MINI Connected to the Mac again**, which explains repeated `connect_failed reason 13` (timeout). The knob re-attaches to the Mac on wake even after "Forget". **Noteworthy** for the cut-over runbook: the Mac must forget the knob *and* the Mac daemon should be unloaded.
+- 06:29Z Vaughan: "Turn the Mac daemon off now". `launchctl bootout` + `launchctl disable gui/$UID/com.vaughanknight.bluos-knob` → not in `launchctl list`. Rollback: `launchctl enable …` then `launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.vaughanknight.bluos-knob.plist`.
+- Vaughan forgot + "ignored" the knob on the Mac, but `system_profiler` still showed it Connected; diag scan showed no `ee:aa:b8:d6:82:5e` adverts. Sent `bonds clear` to re-pair by name; asked Vaughan to turn the Mac's Bluetooth off briefly.
+- Final build evidence: **17:29:45 bonded direct reconnect** (`name:""`, reports 6) as soon as the Mac released the knob; 17:30:25 `bonds_cleared`; **17:30:30 fresh pairing by name** (`ANTICATER_MINI`, reports 6, 5 s); gestures seq 43+ flowing. Vaughan 06:30:17Z: "and working!".
+- **Final-build out-of-range test**: 17:31:16 `disconnected reason 520` → **17:31:21 `connected` (5 s, automatic)**. Vaughan 06:31:39Z: "Came back green".
+- Knob power-cycle is not testable (no off switch); covered by ESP32-reset + out-of-range + Mac-release reconnects.
