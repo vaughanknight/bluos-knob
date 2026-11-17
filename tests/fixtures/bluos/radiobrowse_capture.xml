@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<radiotime service="Capture">
+  <item text="AES/EBU" id="xdynamic-Source5" type="audio" inputType="aesebu" URL="Capture%3Ahw%3Aimxnadadc%2C0%2F1%2F25%2F2%3Fid%3Dxdynamic-Source5" image="/images/capture/ic_opticalinput.png"></item>
+  <item text="Balanced In" id="xdynamic-Source7" type="audio" inputType="balanced" URL="Capture%3Ahw%3Aimxnadadc%2C0%2F1%2F25%2F2%3Fid%3Dxdynamic-Source7" image="/images/capture/ic_opticalinput.png"></item>
+  <item text="Bluetooth" id="input1" type="audio" inputType="bluetooth" URL="Capture%3Abluez%3Abluetooth" image="/images/BluetoothIcon.png" typeIndex="bluetooth-1"></item>
+  <item text="Coaxial 1" id="xdynamic-Source3" type="audio" inputType="coax" URL="Capture%3Ahw%3Aimxnadadc%2C0%2F1%2F25%2F2%3Fid%3Dxdynamic-Source3" image="/images/capture/ic_opticalinput.png"></item>
+  <item text="Coaxial 2" id="xdynamic-Source4" type="audio" inputType="coax" URL="Capture%3Ahw%3Aimxnadadc%2C0%2F1%2F25%2F2%3Fid%3Dxdynamic-Source4" image="/images/capture/ic_opticalinput.png"></item>
+  <item text="HDMI ARC" id="input0" type="audio" inputType="arc" URL="Capture%3Ahw%3Aimxspdif%2C0%2F1%2F25%2F2%3Fid%3Dinput0" image="/images/capture/ic_tv.png" typeIndex="arc-1"></item>
+  <item text="Line In" id="xdynamic-Source6" type="audio" inputType="analog" URL="Capture%3Ahw%3Aimxnadadc%2C0%2F1%2F25%2F2%3Fid%3Dxdynamic-Source6" image="/images/capture/ic_analoginput.png"></item>
+  <item text="Optical 1" id="xdynamic-Source1" type="audio" inputType="optical" URL="Capture%3Ahw%3Aimxnadadc%2C0%2F1%2F25%2F2%3Fid%3Dxdynamic-Source1" image="/images/capture/ic_opticalinput.png"></item>
+  <item text="Optical 2" id="xdynamic-Source2" type="audio" inputType="optical" URL="Capture%3Ahw%3Aimxnadadc%2C0%2F1%2F25%2F2%3Fid%3Dxdynamic-Source2" image="/images/capture/ic_opticalinput.png"></item>
+  <item text="Phono" id="xdynamic-Source8" type="audio" inputType="phono" URL="Capture%3Ahw%3Aimxnadadc%2C0%2F1%2F25%2F2%3Fid%3Dxdynamic-Source8" image="/images/capture/ic_vinyl.png"></item>
+  <item text="Spotify" id="Spotify" type="audio" URL="Spotify%3Aplay" serviceType="CloudService" image="/Sources/images/SpotifyIcon.png"></item>
+</radiotime>

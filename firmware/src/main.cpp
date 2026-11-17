@@ -2,6 +2,7 @@
 #include <M5Unified.h>
 #include <WiFi.h>
 
+#include "amp_control.h"
 #include "ble_knob.h"
 #include "bluos_client.h"
 #include "config.h"
@@ -17,6 +18,9 @@ constexpr size_t kQueueDepth = 16;
 constexpr const char* kKnobNameHint = "ANTICATER";
 constexpr uint32_t kDimAfterMs = 30000;
 constexpr uint32_t kActionShowMs = 1500;
+constexpr uint32_t kResultShowMs = 2500;
+constexpr const char* kLivePhrase = "I understand this controls the amplifier";
+KnobLink g_prev_link = KnobLink::Idle;
 
 QueueHandle_t g_events = nullptr;
 BleKnob g_knob;
@@ -93,6 +97,7 @@ void handle_event(const KnobEvent& ev) {
     g_ui.last_action = decoded.action;
     g_action_at = millis();
     g_dimmer.touch(g_action_at);
+    control_submit(decoded.action, ev.at_ms);
     Serial.printf("{\"seq\":%lu,\"action\":\"%s\",\"raw\":\"%s\",\"usage\":\"0x%04x\",\"t_ms\":%lu}\n",
                   static_cast<unsigned long>(g_ui.events), knob::action_name(decoded.action),
                   hex(ev.data, ev.len).c_str(), decoded.usage, static_cast<unsigned long>(ev.at_ms));
@@ -149,6 +154,17 @@ void handle_command(const String& line) {
         } else {
             Serial.printf("{\"set\":\"%s\",\"ok\":true}\n", json_escape(key).c_str());  // value never echoed
         }
+    } else if (cmd == "live off") {
+        control_set_live(false);
+    } else if (cmd.rfind("live on", 0) == 0) {
+        const std::string phrase = cmd.size() > 8 ? cmd.substr(8) : "";
+        if (!g_config_error.empty()) {
+            Serial.printf("{\"live\":false,\"error\":\"%s\"}\n", json_escape(g_config_error).c_str());
+        } else if (phrase != kLivePhrase) {
+            Serial.printf("{\"live\":false,\"error\":\"type: live on %s\"}\n", kLivePhrase);
+        } else {
+            control_set_live(true);
+        }
     } else if (cmd == "show") {
         print_config();
     } else if (cmd == "reboot") {
@@ -177,18 +193,19 @@ void handle_command(const String& line) {
         Serial.printf(
             "{\"board\":\"%s\",\"knob\":\"%s\",\"peer\":\"%s\",\"wifi\":\"%s\",\"ip\":\"%s\",\"rssi\":%d,"
             "\"amp\":\"%s\",\"db\":%.1f,\"mute\":%d,\"source\":\"%s\",\"amp_failures\":%lu,\"fault\":\"%s\","
-            "\"events\":%lu,\"dropped\":%lu,\"reconnects\":%lu,\"free_heap\":%lu,\"min_free_heap\":%lu}\n",
+            "\"events\":%lu,\"dropped\":%lu,\"reconnects\":%lu,\"live\":%d,\"control_dropped\":%lu,"
+            "\"free_heap\":%lu,\"min_free_heap\":%lu}\n",
             board_name(), knob_link_name(g_knob.link()), esc(g_knob.peer_name()).c_str(),
             WiFi.status() == WL_CONNECTED ? "connected" : "down", WiFi.localIP().toString().c_str(),
             WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0, amp.reachable ? "ok" : "unreachable", amp.volume.db,
             amp.volume.mute, json_escape(amp.status.title).c_str(), static_cast<unsigned long>(amp.failures),
             json_escape(g_ui.fault).c_str(), static_cast<unsigned long>(g_ui.events),
             static_cast<unsigned long>(g_knob.overflow_count()), static_cast<unsigned long>(g_knob.reconnects()),
-            static_cast<unsigned long>(ESP.getFreeHeap()), static_cast<unsigned long>(ESP.getMinFreeHeap()));
+            control_live(), static_cast<unsigned long>(control_dropped()), static_cast<unsigned long>(ESP.getFreeHeap()), static_cast<unsigned long>(ESP.getMinFreeHeap()));
     } else if (!cmd.empty()) {
         Serial.println(
             "{\"error\":\"unknown command\",\"commands\":[\"status\",\"show\",\"set <key> <value>\",\"reboot\","
-            "\"scan\",\"wifi scan\",\"bonds clear\"]}");
+            "\"scan\",\"wifi scan\",\"bonds clear\",\"live on <phrase>\",\"live off\"]}");
     }
 }
 
@@ -225,15 +242,21 @@ void setup() {
     M5.begin(cfg);
     g_events = xQueueCreate(kQueueDepth, sizeof(KnobEvent));
     g_ui.board = board_name();
+    g_ui.max_db = -24;
     g_ui.last_action = knob::Action::NoOp;
     config_load(g_config);
+    g_ui.max_db = g_config.max_db;
     ui_begin();
     Serial.printf("{\"boot\":\"bluos-knob\",\"board\":\"%s\",\"free_heap\":%lu}\n", g_ui.board,
                   static_cast<unsigned long>(ESP.getFreeHeap()));
     g_knob.begin(g_events, kKnobNameHint);
     wifi_register_events();
     wifi_begin();
-    if (g_config_error.empty()) bluos_start(g_config.host, g_config.port);
+    if (g_config_error.empty()) {
+        bluos_start(g_config.host, g_config.port);
+        control_start(g_config);
+    }
+    Serial.println("{\"live\":false,\"note\":\"dry-run at every boot\"}");
     g_dimmer.touch(millis());
 }
 
@@ -265,6 +288,14 @@ void loop() {
     }
 
     g_ui.link = g_knob.link();
+    if (g_ui.link != g_prev_link) {  // queued gestures never survive a knob reconnect
+        control_flush();
+        g_prev_link = g_ui.link;
+    }
+    g_ui.live = control_live();
+    g_ui.control = control_last();
+    g_ui.show_result = g_ui.control.valid && (now - g_ui.control.at_ms) < kResultShowMs;
+    if (g_ui.show_result) g_dimmer.touch(now);
     g_ui.wifi = !g_config_error.empty() ? WifiLink::NotConfigured
                 : WiFi.status() == WL_CONNECTED ? WifiLink::Connected
                                                 : WifiLink::Connecting;

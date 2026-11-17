@@ -5,6 +5,7 @@
 
 #include <string>
 
+#include "amp_control.h"
 #include "ble_knob.h"
 #include "bluos_client.h"
 #include "decoder.h"
@@ -21,6 +22,10 @@ struct UiState {
     bool show_action;         // briefly after a knob event
     bool dimmed;
     uint32_t events;
+    bool live;                // session-only live amp control
+    ControlResult control;    // last executed command
+    bool show_result;         // briefly after a command
+    double max_db;
 };
 
 void ui_begin();
