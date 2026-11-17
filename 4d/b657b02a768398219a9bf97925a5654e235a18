@@ -1,0 +1,43 @@
+firmware/src/main.cpp
+  s_dd51bf282723cd::t_76f42d62088a4e 245,248
+  s_dd51bf282723cd::t_75535c5995adde 5,21-23,100,157-167,196-197,204,208,255-259,291-298
+firmware/src/display_ui.cpp
+  s_dd51bf282723cd::t_76f42d62088a4e 57-62,101-106,111-144,184-189
+firmware/src/display_ui.h
+  s_dd51bf282723cd::t_76f42d62088a4e 8,25-28
+tests/fixtures/bluos/radiobrowse_capture.xml
+  s_dd51bf282723cd::t_79cca5305318c0 1-14
+firmware/src/amp_control.cpp
+  s_dd51bf282723cd::t_0e22cab8124f9b 1-128
+firmware/src/amp_control.h
+  s_dd51bf282723cd::t_0e22cab8124f9b 1-25
+firmware/lib/knob_core/src/amp_policy.h
+  s_dd51bf282723cd::t_2b70b2fc2816c4 1-61
+firmware/lib/knob_core/src/amp_policy.cpp
+  s_dd51bf282723cd::t_f0e74abec9251e 2-7,9-250
+  s_dd51bf282723cd::t_2b70b2fc2816c4 1,8,251
+firmware/test/test_amp_policy/test_amp_policy.cpp
+  s_dd51bf282723cd::t_2b70b2fc2816c4 1-311
+docs/plans/002-esp32-bridge/assets/tasks/phase-3/execution.log.md
+  s_dd51bf282723cd::t_7d418fd073fb9c 1-18
+docs/plans/002-esp32-bridge/assets/tasks/phase-3/tasks.dd.json
+  s_dd51bf282723cd::t_3fdedaed00258c 25,31-32,37,43-44,98,104,112,118,134,140,146
+docs/plans/002-esp32-bridge/assets/tasks/phase-3/tasks.dd.md
+  s_dd51bf282723cd::t_9f48b5511a72dc 38-39,41,53-54,60-61,73-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "4db657b02a768398219a9bf97925a5654e235a18",
+  "prompts": {},
+  "sessions": {
+    "s_dd51bf282723cd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "58b2a6ea-9d92-4cfd-b554-854a81529448",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "Vaughan Knight <252951+vaughanknight@users.noreply.github.com>"
+    }
+  }
+}
