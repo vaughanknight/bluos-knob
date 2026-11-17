@@ -3,7 +3,7 @@
   "kind": "flight-plan",
   "slug": "esp32-bridge",
   "nav": {
-    "now": "phase-3",
+    "now": "post-flight",
     "next": null,
     "intent": "Run the bluos-knob daemon on the USB-connected M5 ESP32 (ESP32-PICO-D4), with a meaningful on-device screen while running",
     "bag": {
@@ -632,6 +632,104 @@
           "importance": "recommended"
         }
       }
+    },
+    {
+      "id": "UPD-015",
+      "kind": "node-updated",
+      "origin": "engine",
+      "fired_at": "2026-11-17T08:52:01.978Z",
+      "details": {
+        "node": "observe-3",
+        "fields": [
+          "comments"
+        ]
+      }
+    },
+    {
+      "id": "STA-020",
+      "kind": "status-changed",
+      "origin": "engine",
+      "fired_at": "2026-11-17T08:52:02.114Z",
+      "details": {
+        "node": "observe-3",
+        "from": "known",
+        "to": "done",
+        "chore": {
+          "kind": "command",
+          "importance": "recommended"
+        }
+      }
+    },
+    {
+      "id": "UPD-016",
+      "kind": "node-updated",
+      "origin": "engine",
+      "fired_at": "2026-11-17T08:52:02.245Z",
+      "details": {
+        "node": "retro-3",
+        "fields": [
+          "comments"
+        ]
+      }
+    },
+    {
+      "id": "STA-021",
+      "kind": "status-changed",
+      "origin": "engine",
+      "fired_at": "2026-11-17T08:52:02.372Z",
+      "details": {
+        "node": "retro-3",
+        "from": "known",
+        "to": "done",
+        "chore": {
+          "kind": "command",
+          "importance": "recommended"
+        }
+      }
+    },
+    {
+      "id": "STA-022",
+      "kind": "status-changed",
+      "origin": "engine",
+      "fired_at": "2026-11-17T08:52:02.501Z",
+      "details": {
+        "node": "phase-3",
+        "from": "in_progress",
+        "to": "done"
+      }
+    },
+    {
+      "id": "UPD-017",
+      "kind": "node-updated",
+      "origin": "engine",
+      "fired_at": "2026-11-17T08:52:31.904Z",
+      "details": {
+        "node": "review-3",
+        "fields": [
+          "comments"
+        ]
+      }
+    },
+    {
+      "id": "STA-023",
+      "kind": "status-changed",
+      "origin": "engine",
+      "fired_at": "2026-11-17T08:52:32.047Z",
+      "details": {
+        "node": "review-3",
+        "from": "known",
+        "to": "done"
+      }
+    },
+    {
+      "id": "CUR-006",
+      "kind": "cursor-moved",
+      "origin": "engine",
+      "fired_at": "2026-11-17T08:52:32.186Z",
+      "details": {
+        "from": "phase-3",
+        "to": "post-flight"
+      }
     }
   ],
   "nodes": [
@@ -1075,34 +1173,52 @@
       "id": "phase-3",
       "type": "phase",
       "label": "P3: Guarded control + cut-over",
-      "status": "in_progress",
+      "status": "done",
       "next": [
         "review-3"
       ],
       "created_at": "2026-11-17T05:23:01.644Z",
-      "modified_at": "2026-11-17T08:12:04.597Z",
+      "modified_at": "2026-11-17T08:52:02.501Z",
       "zone": "flight",
       "command": "/builder 6 implement",
       "dd_link": {
-        "address": "docs/plans/002-esp32-bridge/assets/tasks/phase-3/tasks.dd.json#tasks"
-      }
+        "address": "docs/plans/002-esp32-bridge/assets/tasks/phase-3/tasks.dd.json#tasks",
+        "basis_sha": "285a05b5ecc738b8e1237db106a30b326c4cdadfe57b5aaa3c814aa720fb5b8a",
+        "reading": {
+          "status": "complete",
+          "terminal": 6,
+          "total": 6,
+          "incomplete": [],
+          "at": "2026-11-17T08:52:32.186Z"
+        }
+      },
+      "ran_at": "2026-11-17T08:52:02.501Z"
     },
     {
       "id": "review-3",
       "type": "review",
       "label": "Review: P3",
-      "status": "known",
+      "status": "done",
       "next": [
         "post-flight"
       ],
       "created_at": "2026-11-17T05:23:01.644Z",
-      "modified_at": "2026-11-17T05:23:01.644Z",
+      "modified_at": "2026-11-17T08:52:32.046Z",
       "zone": "flight",
       "command": "/builder 7 review",
       "dd_link": {
         "address": "docs/plans/002-esp32-bridge/plan.dd.json",
         "check": "plan-validate"
-      }
+      },
+      "comments": [
+        {
+          "at": "2026-11-17T08:52:31.903Z",
+          "text": "verdict:APPROVE after fixes (2 MEDIUM + 1 LOW fixed TDD, reflashed); plan validate --complete: 0 err 0 warn; review: assets/tasks/phase-3/reviews/review.phase-3.md",
+          "source": "agent",
+          "kind": "validation"
+        }
+      ],
+      "ran_at": "2026-11-17T08:52:32.046Z"
     },
     {
       "id": "boot-3",
@@ -1134,35 +1250,53 @@
       "id": "observe-3",
       "type": "observe",
       "label": "Observe: P3",
-      "status": "known",
+      "status": "done",
       "next": [
         "phase-3"
       ],
       "created_at": "2026-11-17T05:23:01.644Z",
-      "modified_at": "2026-11-17T05:23:01.644Z",
+      "modified_at": "2026-11-17T08:52:02.114Z",
       "branch_of": "phase-3",
       "command": "harness observe \"<what>\" --kind <kind>",
       "chore": {
         "kind": "command",
         "importance": "recommended"
-      }
+      },
+      "comments": [
+        {
+          "at": "2026-11-17T08:52:01.978Z",
+          "text": "captures: INS-001 (live testing exposed muted/race gaps; fake modes made them testable) → .harness/temp/agent/session-buffer.md time:2026-11-17T08:55Z",
+          "source": "agent",
+          "kind": "validation"
+        }
+      ],
+      "ran_at": "2026-11-17T08:52:02.114Z"
     },
     {
       "id": "retro-3",
       "type": "harness-retro",
       "label": "Retro: P3 (drain)",
-      "status": "known",
+      "status": "done",
       "next": [
         "phase-3"
       ],
       "created_at": "2026-11-17T05:23:01.644Z",
-      "modified_at": "2026-11-17T05:23:01.644Z",
+      "modified_at": "2026-11-17T08:52:02.372Z",
       "branch_of": "phase-3",
       "command": "run /eng-harness-flow --hook post-coding --json",
       "chore": {
         "kind": "command",
         "importance": "recommended"
-      }
+      },
+      "comments": [
+        {
+          "at": "2026-11-17T08:52:02.245Z",
+          "text": "decision:noop hook:post-coding actual_stage:adopt missing_rung:S2-governance reason:repo unprovisioned; buffer retained (5 entries) time:2026-11-17T08:55Z",
+          "source": "agent",
+          "kind": "validation"
+        }
+      ],
+      "ran_at": "2026-11-17T08:52:02.372Z"
     }
   ],
   "plan_dir": "docs/plans/002-esp32-bridge"

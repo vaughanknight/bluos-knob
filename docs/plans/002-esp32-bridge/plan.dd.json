@@ -9,7 +9,7 @@
         "title": "ESP32 knob bridge (M5StickC firmware)",
         "slug": "esp32-bridge",
         "ordinal": 2,
-        "status": "ready",
+        "status": "in-progress",
         "mode": "Full",
         "plan_version": "1.0.0",
         "created": "2026-11-17",
@@ -108,7 +108,7 @@
         {
           "id": "ph-5378",
           "title": "Knob to screen over BLE",
-          "state": "unchecked",
+          "state": "checked",
           "tasks": "assets/tasks/phase-1/tasks.dd.json#tasks",
           "objective": "Prove and build the BLE HID host so every knob gesture shows on the device screen, with the core decoder ported and tested.",
           "brief": "Spike BLE first, then scaffold firmware/, TDD the decoder, build the BLE adapter and a first screen. No Wi-Fi, no amp.",
@@ -124,7 +124,7 @@
         {
           "id": "ph-e683",
           "title": "Wi-Fi and read-only BluOS status",
-          "state": "unchecked",
+          "state": "checked",
           "depends_on": [
             "ph-5378"
           ],
@@ -142,7 +142,7 @@
         {
           "id": "ph-d932",
           "title": "Guarded amp control and cut-over",
-          "state": "unchecked",
+          "state": "checked",
           "depends_on": [
             "ph-e683"
           ],
