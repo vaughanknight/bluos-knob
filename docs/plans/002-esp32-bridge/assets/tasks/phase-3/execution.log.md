@@ -25,3 +25,19 @@
 
 ## tk-2305 docs: done
 - `docs/how/esp32-bridge.md` runbook; README "Run it on an ESP32" section + intro no longer says "next".
+
+## tk-2306 supervised cut-over (Vaughan on the couch, 19:41–19:46)
+- Mac daemon already disabled (Phase 1). Vaughan 08:41:02Z: "You run live now I'm on my phone and can test from couch".
+- Temporary test cap: `set max_db -36` + reboot (so the refusal could be tested at −38 without getting loud).
+- **Dry-run**: 4 turns → `control:"dry_run"`, writes 0.
+- 19:41:43 `live on <phrase>` → `{"live":true,"remembered":true}`.
+- **Live steps**: one write per click (−38→−39→−40→−39→−38→−37→−36).
+- **Cap**: 19:41:50 `{"control":"refused","before_db":-36.0,"cap":1,"writes":0,"message":"max -36 dB"}`; decreases continued straight after. Vaughan: "It works!"
+- **Mute**: 19:42:45 mute (−38, 1 write), 19:42:46 unmute (1 write). Vaughan: "Mute worked".
+- Source switches (Optical/Spotify) **not exercised live** (Vaughan watching TV). **Deferred**: covered by 4 policy tests incl. lower-first/never-raise; confirm on hardware later.
+- Cap restored: `set max_db -24` + reboot → `show` max_db −24.0, still LIVE (remembered).
+
+## Safety bug found live + fixed (TDD)
+- The unmute log line showed `before_db:-100.0`: **a muted BluOS player reports db="-100"**, with the real level only in `muteDb` (present only while muted; confirmed in the BluOS Custom Integration API docs + homebridge-bluos PROTOCOL.md). A volume step while muted would check the cap against −100, but BluOS applies `db=+1` relative to the real level, so it could pass max_db. **The Python daemon has the same hole** (Deferred: Mac daemon is disabled; fix there before re-enabling).
+- RED: new tests (`given_muted_amp_…`, `given_muted_volume_response_…`) failed: the muted step at the real cap was accepted.
+- Fix: `parse_volume` exposes `has_mute_db/mute_db`; the policy basis while muted is `muteDb`; muted without `muteDb` → Failed, no write. Mute toggle uses only the mute state, so **unmute always works**. `pio test -e native` 29/29 green; reflashed; came back LIVE and in use (19:46).

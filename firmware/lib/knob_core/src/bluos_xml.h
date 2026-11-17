@@ -9,6 +9,8 @@ struct VolumeInfo {
     bool ok = false;  // false when db is missing or not a finite number
     double db = 0;
     bool mute = false;
+    bool has_mute_db = false;  // BluOS sends muteDb only while muted: the real (unmuted) level
+    double mute_db = 0;
     int level = -1;
 };
 

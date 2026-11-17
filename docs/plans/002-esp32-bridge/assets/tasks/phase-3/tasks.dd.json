@@ -80,14 +80,15 @@
         {
           "id": "tk-2306",
           "title": "Supervised cut-over (Vaughan's go-ahead): unload Mac launchd daemon, dry-run check, live on, step down/up near cap, mute, both sources; then rollback rehearsal",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2306",
           "success": "Recorded in execution log; amp never exceeded max_db",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0206",
             "../../../plan.dd.json#acceptance_criteria/ac-0207",
             "../../../plan.dd.json#acceptance_criteria/ac-0208"
-          ]
+          ],
+          "receipt": "19:41 dry-run 0 writes → live → steps 1 write each → refused at test cap −36 (0 writes) → mute/unmute live; cap restored −24; muted-basis safety bug found and fixed (29/29)"
         }
       ]
     },
@@ -168,14 +169,15 @@
           {
             "id": "dw-3060",
             "assertion": "Cap refusal observed live",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-3061",
             "assertion": "Rollback restores Mac daemon control",
-            "state": "unchecked",
-            "pressure": "not-applicable"
+            "state": "na",
+            "pressure": "not-applicable",
+            "note": "Rollback is documented (docs/how/esp32-bridge.md) and the Mac daemon disable/enable commands were exercised on bootout; a full rollback rehearsal was not run at Vaughan's request to keep using the ESP32."
           }
         ]
       }

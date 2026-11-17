@@ -40,7 +40,7 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 | tk-2303 | Screen v3: big dB + bar against the cap on turn, cap-blocked flash, mute/source confirmations, DRY-RUN/LIVE badge | — | — | [x] checked | — | display_ui.cpp: DRY-RUN/LIVE badge, dB+bar to max_db, red MAX on refusal, MUTED/UNMUTED, Optical/Spotify, failure + dry-run lines; builds + renders (dry-run flash) | [x] 1/1 [tk-2303](#tk-2303) | Each state renders on device | — | [ac-0206](../../../plan.dd.md#acceptance-criteria), [ac-0207](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2304 | Live switch: serial `live on` requires the confirmation phrase; live state persisted in NVS (owner decision: remember LIVE); `live off` instant and persisted; switching mode flushes the event queue | — | — | [x] checked | — | Serial: fresh boot live=false; wrong/missing phrase refused; live on &lt;phrase&gt; → reboot → live=1; live off → reboot → live=0; queue flushed on change (control_flush) | [x] 3/3 [tk-2304](#tk-2304) | Live mode only after explicit confirm; badge reflects it; reboot returns to DRY-RUN | — | [ac-0207](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2305 | Docs: docs/how/esp32-bridge.md (flash, pair, Wi-Fi, go live, cut-over, rollback to Mac daemon, clear bonds) + README "Run it on an ESP32" | — | — | [x] checked | — | docs/how/esp32-bridge.md (flash, pair, Wi-Fi 2.4 GHz, screen, going live, safety rules, console, cut-over, rollback); README 'Run it on an ESP32' + intro updated; just fw-live/fw-dry-run/fw-status | [x] 2/2 [tk-2305](#tk-2305) | Runbook followed end-to-end in tk-2306 | — | [ac-0208](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2306 | Supervised cut-over (Vaughan's go-ahead): unload Mac launchd daemon, dry-run check, live on, step down/up near cap, mute, both sources; then rollback rehearsal | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2306](#tk-2306) | Recorded in execution log; amp never exceeded max_db | — | [ac-0206](../../../plan.dd.md#acceptance-criteria), [ac-0207](../../../plan.dd.md#acceptance-criteria), [ac-0208](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2306 | Supervised cut-over (Vaughan's go-ahead): unload Mac launchd daemon, dry-run check, live on, step down/up near cap, mute, both sources; then rollback rehearsal | — | — | [x] checked | — | 19:41 dry-run 0 writes → live → steps 1 write each → refused at test cap −36 (0 writes) → mute/unmute live; cap restored −24; muted-basis safety bug found and fixed (29/29) | [x] 2/2 [tk-2306](#tk-2306) | Recorded in execution log; amp never exceeded max_db | — | [ac-0206](../../../plan.dd.md#acceptance-criteria), [ac-0207](../../../plan.dd.md#acceptance-criteria), [ac-0208](../../../plan.dd.md#acceptance-criteria) | — |
 
 <a id="done-when"></a>
 
@@ -83,7 +83,7 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 ### tk-2306
 
-| id | assertion | state | pressure |
-| --- | --- | --- | --- |
-| dw-3060 | Cap refusal observed live | [ ] unchecked | not-applicable |
-| dw-3061 | Rollback restores Mac daemon control | [ ] unchecked | not-applicable |
+| id | assertion | state | pressure | note |
+| --- | --- | --- | --- | --- |
+| dw-3060 | Cap refusal observed live | [x] checked | not-applicable | — |
+| dw-3061 | Rollback restores Mac daemon control | [x] na | not-applicable | Rollback is documented (docs/how/esp32-bridge.md) and the Mac daemon disable/enable commands were exercised on bootout; a full rollback rehearsal was not run at Vaughan's request to keep using the ESP32. |

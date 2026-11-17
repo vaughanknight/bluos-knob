@@ -79,17 +79,20 @@
         {
           "id": "ac-0206",
           "claim": "A volume increase that would exceed max dB is refused and flagged on screen; source switches set volume to the safe level ≤ −24 dB; both are covered by host tests mirroring `assert_safe_step` and `safe_abs_db_value`.",
-          "state": "unchecked"
+          "state": "checked",
+          "receipt": "Live refusal at cap (19:41:50, 0 writes); policy tests incl. muted-at-cap; source switch never raises (tests; live switch Deferred)"
         },
         {
           "id": "ac-0207",
           "claim": "The device ships in dry-run (shows DRY-RUN, sends no write commands). Live control is enabled only by an explicit serial command with a confirmation phrase, is remembered across restarts until `live off` (owner decision 2026-11-17), and the current mode is always shown on screen.",
-          "state": "unchecked"
+          "state": "checked",
+          "receipt": "Fresh boot DRY-RUN; live only via phrase (wrong phrase refused); remembered across reboot per owner decision; badge shown"
         },
         {
           "id": "ac-0208",
           "claim": "`docs/how/esp32-bridge.md` covers flash, pairing, Wi-Fi setup, going live, and cut-over/rollback with the Mac daemon; README links it.",
-          "state": "unchecked"
+          "state": "checked",
+          "receipt": "docs/how/esp32-bridge.md (cut-over + rollback) + README section"
         },
         {
           "id": "ac-0209",

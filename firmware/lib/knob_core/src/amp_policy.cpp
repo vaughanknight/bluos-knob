@@ -14,6 +14,8 @@ std::string fmt_db(double value) {
     return buf;
 }
 
+// Reads the amp and returns the real level in out->db. A muted BluOS player reports db=-100 with the
+// real level in muteDb, so while muted the basis is muteDb; muted without it is unknown (fail closed).
 bool read_volume(AmpTransport& amp, VolumeInfo* out, std::string* error) {
     std::string body;
     if (!amp.get("/Volume", &body)) {
@@ -24,6 +26,13 @@ bool read_volume(AmpTransport& amp, VolumeInfo* out, std::string* error) {
     if (!out->ok) {
         *error = "amp volume unreadable";
         return false;
+    }
+    if (out->mute) {
+        if (!out->has_mute_db) {
+            *error = "amp muted; real volume unknown";
+            return false;
+        }
+        out->db = out->mute_db;
     }
     return true;
 }
@@ -151,9 +160,13 @@ ExecResult execute(const Command& command, const Config& config, AmpTransport& a
         }
 
         case CommandKind::MuteToggle: {
-            if (!read_volume(amp, &volume, &error)) return failed(r, error);
+            // Only the mute state matters here (unmuting restores the pre-mute level), so a muted amp
+            // without muteDb can still be unmuted.
+            if (!amp.get("/Volume", &body)) return failed(r, "couldn't read the amp volume");
+            volume = parse_volume(body);
+            if (!volume.ok) return failed(r, "amp volume unreadable");
             r.has_before = true;
-            r.before_db = volume.db;
+            r.before_db = volume.mute && volume.has_mute_db ? volume.mute_db : volume.db;
             r.mute_after = !volume.mute;
             if (!live) {
                 r.outcome = Outcome::DryRun;

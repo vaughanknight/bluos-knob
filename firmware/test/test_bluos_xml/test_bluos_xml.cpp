@@ -100,11 +100,29 @@ void given_status_with_entities_and_no_db_when_parsed_then_decoded_and_flagged()
     TEST_ASSERT_FALSE(knob::parse_status("<volume db=\"-3\"/>").ok);
 }
 
+void given_muted_volume_response_when_parsed_then_mute_db_is_the_real_level() {
+    /*
+    Test Doc:
+    - Why: Muted players report db="-100"; the real level is in muteDb (present only while muted).
+    - Contract: parse_volume exposes has_mute_db/mute_db; db stays the reported value.
+    - Usage Notes: Safety code uses mute_db as the basis while muted.
+    - Quality Contribution: Catches confusing -100 with the real level.
+    - Worked Example: db="-100" mute="1" muteDb="-32.1" -> db -100, mute, mute_db -32.1.
+    */
+    knob::VolumeInfo v = knob::parse_volume("<volume db=\"-100\" mute=\"1\" muteVolume=\"60\" muteDb=\"-32.1\">0</volume>");
+    TEST_ASSERT_TRUE(v.ok);
+    TEST_ASSERT_TRUE(v.mute);
+    TEST_ASSERT_TRUE(v.has_mute_db);
+    TEST_ASSERT_EQUAL_DOUBLE(-32.1, v.mute_db);
+    TEST_ASSERT_FALSE(knob::parse_volume(kVolumeXml).has_mute_db);
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(given_real_volume_response_when_parsed_then_db_mute_level);
     RUN_TEST(given_missing_or_garbled_db_when_parsed_then_not_ok);
     RUN_TEST(given_real_status_response_when_parsed_then_source_fields);
     RUN_TEST(given_status_with_entities_and_no_db_when_parsed_then_decoded_and_flagged);
+    RUN_TEST(given_muted_volume_response_when_parsed_then_mute_db_is_the_real_level);
     return UNITY_END();
 }

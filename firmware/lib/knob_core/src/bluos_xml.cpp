@@ -96,6 +96,8 @@ VolumeInfo parse_volume(const std::string& xml) {
     std::string db, mute;
     if (!attribute(xml, root, "db", &db) || !parse_finite(db, &info.db)) return info;
     info.mute = attribute(xml, root, "mute", &mute) && mute == "1";
+    std::string mute_db;
+    info.has_mute_db = attribute(xml, root, "muteDb", &mute_db) && parse_finite(mute_db, &info.mute_db);
     const size_t text_start = xml.find('>', root);
     const size_t text_end = xml.find("</volume>", text_start);
     double level = 0;

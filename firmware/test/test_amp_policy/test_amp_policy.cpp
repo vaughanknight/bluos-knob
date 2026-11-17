@@ -27,6 +27,7 @@ class FakeAmp : public knob::AmpTransport {
     bool mute = false;
     std::string source = "optical-1";
     bool volume_readable = true;
+    bool mute_db_reported = true;
     std::set<std::string> unreachable;   // paths that fail with no effect
     std::set<std::string> lose_response; // paths that apply but whose response is lost
     std::vector<std::string> requests;
@@ -46,7 +47,11 @@ class FakeAmp : public knob::AmpTransport {
         }
         if (path.rfind("/Volume", 0) == 0) {
             char buf[96];
-            if (volume_readable)
+            if (volume_readable && mute && mute_db_reported)  // real BluOS: muted reports db=-100 + muteDb
+                snprintf(buf, sizeof(buf), "<volume db=\"-100\" mute=\"1\" muteDb=\"%g\">0</volume>", db);
+            else if (volume_readable && mute)
+                snprintf(buf, sizeof(buf), "<volume db=\"-100\" mute=\"1\">0</volume>");
+            else if (volume_readable)
                 snprintf(buf, sizeof(buf), "<volume db=\"%g\" mute=\"%d\">50</volume>", db, mute ? 1 : 0);
             else
                 snprintf(buf, sizeof(buf), "<volume mute=\"0\">50</volume>");
@@ -294,6 +299,39 @@ void given_event_ages_when_checked_then_old_events_are_stale() {
     TEST_ASSERT_FALSE(knob::event_is_stale(0xFFFFFF00u, 0x00000010u, 1000));
 }
 
+void given_muted_amp_when_stepping_or_switching_then_cap_uses_the_real_unmuted_level() {
+    /*
+    Test Doc:
+    - Why: Found live on 2026-11-17: a muted BluOS player reports db="-100" (muteDb holds the real level), so
+      checking the cap against -100 would let a step go past max_db once the relative step applies.
+    - Contract: while muted, the safety basis is muteDb; muted without muteDb is Failed with no write.
+    - Usage Notes: BluOS publishes muteDb/muteVolume only while muted (Custom Integration API).
+    - Quality Contribution: Catches the muted-at-cap bypass in both the volume step and the source switch.
+    - Worked Example: muted, real -24 -> step up refused; muted, real -30 -> optical lowers to -40 first.
+    */
+    FakeAmp amp;
+    amp.db = -24;
+    amp.mute = true;
+    knob::ExecResult r = run(Action::VolumeUp, amp);
+    TEST_ASSERT_EQUAL(Outcome::Refused, r.outcome);
+    TEST_ASSERT_EQUAL_DOUBLE(-24, r.before_db);
+    TEST_ASSERT_EQUAL_INT(0, amp.writes());
+    FakeAmp loud;
+    loud.db = -30;
+    loud.mute = true;
+    TEST_ASSERT_EQUAL(Outcome::Done, run(Action::BrightnessDown, loud).outcome);
+    TEST_ASSERT_EQUAL_STRING("/Volume?abs_db=-40", loud.requests.at(1).c_str());
+    FakeAmp unknown;
+    unknown.mute = true;
+    unknown.mute_db_reported = false;
+    TEST_ASSERT_EQUAL(Outcome::Failed, run(Action::VolumeUp, unknown).outcome);
+    TEST_ASSERT_EQUAL(Outcome::Failed, run(Action::BrightnessUp, unknown).outcome);
+    TEST_ASSERT_EQUAL_INT(0, unknown.writes());
+    // Unmuting never raises above the pre-mute level, so it must always work.
+    TEST_ASSERT_EQUAL(Outcome::Done, run(Action::MuteToggle, unknown).outcome);
+    TEST_ASSERT_FALSE(unknown.mute);
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(given_actions_when_planned_then_match_daemon_command_table);
@@ -307,5 +345,6 @@ int main() {
     RUN_TEST(given_source_switch_when_louder_than_safe_level_then_lowers_first_and_never_raises);
     RUN_TEST(given_spotify_button_when_switching_then_plays_listed_url_or_fails_without_write);
     RUN_TEST(given_event_ages_when_checked_then_old_events_are_stale);
+    RUN_TEST(given_muted_amp_when_stepping_or_switching_then_cap_uses_the_real_unmuted_level);
     return UNITY_END();
 }
