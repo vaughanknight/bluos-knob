@@ -67,12 +67,14 @@
         {
           "id": "ac-0204",
           "claim": "`just fw-wifi` prompts for SSID and a hidden password in the terminal, stores them in device NVS over serial, and neither value appears in serial output, logs, or git.",
-          "state": "unchecked"
+          "state": "checked",
+          "receipt": "just fw-wifi: getpass prompt → NVS; show masks ****; nothing secret in git (agent-secrets check-staged clean)"
         },
         {
           "id": "ac-0205",
           "claim": "On Wi-Fi the screen shows the amp's current volume (dB) and source from BluOS; when the amp or knob is unreachable it shows a plain-language fault (e.g. \"can't reach amp 192.168.1.67\", \"knob not connected\").",
-          "state": "unchecked"
+          "state": "checked",
+          "receipt": "Screen shows amp dB + source from /Volume,/Status; plain faults for Wi-Fi not found, amp unreachable, knob not connected (phase-2 log)"
         },
         {
           "id": "ac-0206",
@@ -92,7 +94,8 @@
         {
           "id": "ac-0209",
           "claim": "The screen dims after inactivity and wakes on the next knob event or status change.",
-          "state": "unchecked"
+          "state": "checked",
+          "receipt": "Dimmer 30 s, wakes on knob event and volume/source change; test_timing + Vaughan confirmation"
         }
       ]
     },

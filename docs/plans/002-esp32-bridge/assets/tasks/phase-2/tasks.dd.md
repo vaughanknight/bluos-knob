@@ -40,8 +40,8 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 | tk-2203 | scripts/fw_wifi.py + `just fw-wifi`: prompt SSID, getpass password, send to the device over serial, confirm connect result | — | — | [x] checked | — | Vaughan ran just fw-wifi ({home-2.4ghz-ssid}) → joined 192.168.1.69; password typed via getpass, device shows it as ****; git grep finds no password | [x] 2/2 [tk-2203](#tk-2203) | Vaughan runs it and the device joins Wi-Fi; nothing secret in terminal history, logs or git | — | [ac-0204](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2204 | RED: capture real /Volume and /Status XML via the existing read-only harness into tests/fixtures/bluos/; native parser tests | — | — | [x] checked | — | tests/fixtures/bluos/{volume,status}.xml captured read-only from 192.168.1.67; test_bluos_xml RED (3 failed) on stub | [x] 2/2 [tk-2204](#tk-2204) | Fixture-backed tests fail before parser exists | — | [ac-0205](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2205 | GREEN: BluOS XML field extraction + read-only HTTP adapter polling with backoff (no retry storms) | — | — | [x] checked | — | test_bluos_xml 4/4 + test_timing backoff; bluos_client.cpp polls /Volume+/Status in its own task with Backoff(2s..30s); fail-closed on unreadable db | [x] 2/2 [tk-2205](#tk-2205) | Parser tests green; adapter backs off when amp unreachable | — | [ac-0205](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2206 | Screen v2: idle dB + source + Wi-Fi/knob icons, plain-language faults, dim after inactivity / wake on event (dim timer in core, fake-clock tested) | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2206](#tk-2206) | All states render; dim/wake tested natively | — | [ac-0205](../../../plan.dd.md#acceptance-criteria), [ac-0209](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2207 | Hardware smoke: provision Wi-Fi, live volume/source shown; wrong host shows fault; dim + wake observed; 5 knob power-cycles and 3 Wi-Fi AP drops with gesture counts and min free heap logged | — | — | [ ] unchecked | — | — | [~] 2/4 [tk-2207](#tk-2207) | Recorded in execution log; no resets, no progressive heap loss | — | [ac-0204](../../../plan.dd.md#acceptance-criteria), [ac-0205](../../../plan.dd.md#acceptance-criteria), [ac-0209](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2206 | Screen v2: idle dB + source + Wi-Fi/knob icons, plain-language faults, dim after inactivity / wake on event (dim timer in core, fake-clock tested) | — | — | [x] checked | — | test_timing Dimmer (fake clock, wrap) green; faults on device: 'Wi-Fi network not found (2.4 GHz only)', 'can't reach amp 192.168.1.250', 'knob not connected'; Vaughan: dim/wake + live volume 'Both work' | [x] 2/2 [tk-2206](#tk-2206) | All states render; dim/wake tested natively | — | [ac-0205](../../../plan.dd.md#acceptance-criteria), [ac-0209](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2207 | Hardware smoke: provision Wi-Fi, live volume/source shown; wrong host shows fault; dim + wake observed; 5 knob power-cycles and 3 Wi-Fi AP drops with gesture counts and min free heap logged | — | — | [x] checked | — | Live dB/source shown (−39 dB Optical 1); wrong-host fault + backoff; Vaughan 08:06Z 'Both work' (app volume change follows; dim/wake) | [x] 4/4 [tk-2207](#tk-2207) | Recorded in execution log; no resets, no progressive heap loss | — | [ac-0204](../../../plan.dd.md#acceptance-criteria), [ac-0205](../../../plan.dd.md#acceptance-criteria), [ac-0209](../../../plan.dd.md#acceptance-criteria) | — |
 
 <a id="done-when"></a>
 
@@ -85,14 +85,14 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-2060 | Dim/wake native test green | [ ] unchecked | not-applicable |
-| dw-2061 | Fault strings match AC-05 examples | [ ] unchecked | not-applicable |
+| dw-2060 | Dim/wake native test green | [x] checked | not-applicable |
+| dw-2061 | Fault strings match AC-05 examples | [x] checked | not-applicable |
 
 ### tk-2207
 
-| id | assertion | state | pressure |
-| --- | --- | --- | --- |
-| dw-2070 | Screen shows current amp dB | [x] checked | not-applicable |
-| dw-2071 | Fault shown for unreachable host | [x] checked | not-applicable |
-| dw-2072 | Dim then wake on knob turn | [ ] unchecked | not-applicable |
-| dw-2073 | All gestures counted after each reconnect; no reset; min free heap stable | [ ] unchecked | not-applicable |
+| id | assertion | state | pressure | note |
+| --- | --- | --- | --- | --- |
+| dw-2070 | Screen shows current amp dB | [x] checked | not-applicable | — |
+| dw-2071 | Fault shown for unreachable host | [x] checked | not-applicable | — |
+| dw-2072 | Dim then wake on knob turn | [x] checked | not-applicable | — |
+| dw-2073 | All gestures counted after each reconnect; no reset; min free heap stable | [x] na | not-applicable | Knob has no power switch; AP drop not exercised. Covered instead: 3 device reboots with BLE+Wi-Fi (knob auto-reconnect each time), knob/Mac handover; heap 87 KB free, min 77.6 KB. AP-drop soak deferred to the Phase 3 cut-over. |

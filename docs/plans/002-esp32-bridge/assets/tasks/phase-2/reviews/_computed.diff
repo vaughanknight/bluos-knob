@@ -1,0 +1,1440 @@
+diff --git a/firmware/lib/knob_core/src/bluos_xml.cpp b/firmware/lib/knob_core/src/bluos_xml.cpp
+new file mode 100644
+index 0000000..c48302b
+--- /dev/null
++++ b/firmware/lib/knob_core/src/bluos_xml.cpp
+@@ -0,0 +1,124 @@
++#include "bluos_xml.h"
++
++#include <cerrno>
++#include <cmath>
++#include <cstdlib>
++
++namespace knob {
++namespace {
++
++std::string decode_entities(const std::string& in) {
++    static const struct {
++        const char* entity;
++        char ch;
++    } kEntities[] = {{"&amp;", '&'}, {"&lt;", '<'}, {"&gt;", '>'}, {"&quot;", '"'}, {"&apos;", '\''}};
++    std::string out;
++    out.reserve(in.size());
++    for (size_t i = 0; i < in.size(); ++i) {
++        bool replaced = false;
++        if (in[i] == '&') {
++            for (const auto& e : kEntities) {
++                const size_t n = std::char_traits<char>::length(e.entity);
++                if (in.compare(i, n, e.entity) == 0) {
++                    out += e.ch;
++                    i += n - 1;
++                    replaced = true;
++                    break;
++                }
++            }
++        }
++        if (!replaced) out += in[i];
++    }
++    return out;
++}
++
++// Start of the root element's open tag, after any <?xml ...?> prolog.
++size_t root_start(const std::string& xml, const char* name) {
++    size_t pos = 0;
++    while ((pos = xml.find('<', pos)) != std::string::npos) {
++        if (xml.compare(pos, 2, "<?") == 0) {
++            pos = xml.find("?>", pos);
++            if (pos == std::string::npos) return std::string::npos;
++            continue;
++        }
++        const std::string open = std::string("<") + name;
++        if (xml.compare(pos, open.size(), open) == 0) {
++            const char next = pos + open.size() < xml.size() ? xml[pos + open.size()] : '\0';
++            if (next == ' ' || next == '>' || next == '/') return pos;
++        }
++        return std::string::npos;
++    }
++    return std::string::npos;
++}
++
++bool attribute(const std::string& xml, size_t tag_start, const char* name, std::string* out) {
++    const size_t tag_end = xml.find('>', tag_start);
++    if (tag_end == std::string::npos) return false;
++    const std::string needle = std::string(" ") + name + "=\"";
++    const size_t at = xml.find(needle, tag_start);
++    if (at == std::string::npos || at > tag_end) return false;
++    const size_t value_start = at + needle.size();
++    const size_t value_end = xml.find('"', value_start);
++    if (value_end == std::string::npos || value_end > tag_end) return false;
++    *out = decode_entities(xml.substr(value_start, value_end - value_start));
++    return true;
++}
++
++// Text of the first <name>...</name> child (exact tag name, so <title1> never matches <twoline_title1>).
++bool element(const std::string& xml, const char* name, std::string* out) {
++    const std::string open = std::string("<") + name + ">";
++    const std::string close = std::string("</") + name + ">";
++    const size_t start = xml.find(open);
++    if (start == std::string::npos) return false;
++    const size_t text_start = start + open.size();
++    const size_t end = xml.find(close, text_start);
++    if (end == std::string::npos) return false;
++    *out = decode_entities(xml.substr(text_start, end - text_start));
++    return true;
++}
++
++bool parse_finite(const std::string& text, double* out) {
++    if (text.empty()) return false;
++    errno = 0;
++    char* end = nullptr;
++    const double value = std::strtod(text.c_str(), &end);
++    if (errno != 0 || end != text.c_str() + text.size() || !std::isfinite(value)) return false;
++    *out = value;
++    return true;
++}
++
++}  // namespace
++
++VolumeInfo parse_volume(const std::string& xml) {
++    VolumeInfo info;
++    const size_t root = root_start(xml, "volume");
++    if (root == std::string::npos) return info;
++    std::string db, mute;
++    if (!attribute(xml, root, "db", &db) || !parse_finite(db, &info.db)) return info;
++    info.mute = attribute(xml, root, "mute", &mute) && mute == "1";
++    const size_t text_start = xml.find('>', root);
++    const size_t text_end = xml.find("</volume>", text_start);
++    double level = 0;
++    if (text_start != std::string::npos && text_end != std::string::npos &&
++        parse_finite(xml.substr(text_start + 1, text_end - text_start - 1), &level)) {
++        info.level = static_cast<int>(level);
++    }
++    info.ok = true;
++    return info;
++}
++
++StatusInfo parse_status(const std::string& xml) {
++    StatusInfo info;
++    if (root_start(xml, "status") == std::string::npos) return info;
++    element(xml, "service", &info.service);
++    element(xml, "title1", &info.title);
++    element(xml, "inputTypeIndex", &info.input_type_index);
++    element(xml, "state", &info.state);
++    std::string text;
++    info.has_db = element(xml, "db", &text) && parse_finite(text, &info.db);
++    info.mute = element(xml, "mute", &text) && text == "1";
++    info.ok = true;
++    return info;
++}
++
++}  // namespace knob
+diff --git a/firmware/lib/knob_core/src/bluos_xml.h b/firmware/lib/knob_core/src/bluos_xml.h
+new file mode 100644
+index 0000000..79cef74
+--- /dev/null
++++ b/firmware/lib/knob_core/src/bluos_xml.h
+@@ -0,0 +1,29 @@
++// Field extraction from BluOS /Volume and /Status XML. Portable, allocation-light, no XML library.
++#pragma once
++
++#include <string>
++
++namespace knob {
++
++struct VolumeInfo {
++    bool ok = false;  // false when db is missing or not a finite number
++    double db = 0;
++    bool mute = false;
++    int level = -1;
++};
++
++struct StatusInfo {
++    bool ok = false;
++    std::string service;
++    std::string title;  // title1, entity-decoded
++    std::string input_type_index;
++    std::string state;
++    bool has_db = false;
++    double db = 0;
++    bool mute = false;
++};
++
++VolumeInfo parse_volume(const std::string& xml);
++StatusInfo parse_status(const std::string& xml);
++
++}  // namespace knob
+diff --git a/firmware/lib/knob_core/src/config.cpp b/firmware/lib/knob_core/src/config.cpp
+new file mode 100644
+index 0000000..ccc910f
+--- /dev/null
++++ b/firmware/lib/knob_core/src/config.cpp
+@@ -0,0 +1,75 @@
++#include "config.h"
++
++#include <cerrno>
++#include <cmath>
++#include <cstdlib>
++
++namespace knob {
++namespace {
++
++bool parse_number(const std::string& text, double* out) {
++    if (text.empty()) return false;
++    errno = 0;
++    char* end = nullptr;
++    const double value = std::strtod(text.c_str(), &end);
++    if (errno != 0 || end != text.c_str() + text.size() || !std::isfinite(value)) return false;
++    *out = value;
++    return true;
++}
++
++}  // namespace
++
++std::string validate_config(const Config& c) {
++    if (c.wifi_ssid.empty()) return "Wi-Fi not set up (run just fw-wifi)";
++    if (c.wifi_ssid.size() > 32) return "Wi-Fi name longer than 32 characters";
++    if (c.wifi_pass.size() > 64) return "Wi-Fi password longer than 64 characters";
++    if (c.host.empty()) return "amp address not set (run just fw-wifi)";
++    if (c.port < 1 || c.port > 65535) return "amp port must be 1-65535";
++    if (c.max_db > -24) return "max_db must be -24 dB or lower";
++    if (c.source_safe_db > -24) return "source_safe_db must be -24 dB or lower";
++    if (!(c.step_db > 0 && c.step_db <= 3)) return "step_db must be above 0 and at most 3 dB";
++    if (c.optical_input.empty()) return "optical_input not set";
++    if (c.spotify_source.empty()) return "spotify_source not set";
++    return "";
++}
++
++std::string apply_setting(Config& config, const std::string& key, const std::string& value) {
++    Config next = config;
++    double number = 0;
++    if (key == "wifi_ssid") {
++        next.wifi_ssid = value;
++        if (value.empty() || value.size() > 32) return "wifi_ssid must be 1-32 characters";
++    } else if (key == "wifi_pass") {
++        next.wifi_pass = value;
++        if (value.size() > 64) return "wifi_pass must be at most 64 characters";
++    } else if (key == "host") {
++        next.host = value;
++        if (value.empty()) return "host must not be empty";
++    } else if (key == "port") {
++        if (!parse_number(value, &number) || number != std::floor(number) || number < 1 || number > 65535)
++            return "port must be a whole number 1-65535";
++        next.port = static_cast<int>(number);
++    } else if (key == "max_db" || key == "source_safe_db" || key == "step_db") {
++        if (!parse_number(value, &number)) return key + " must be a number";
++        if (key == "max_db") next.max_db = number;
++        if (key == "source_safe_db") next.source_safe_db = number;
++        if (key == "step_db") next.step_db = number;
++        if (key == "max_db" && number > -24) return "max_db must be -24 dB or lower";
++        if (key == "source_safe_db" && number > -24) return "source_safe_db must be -24 dB or lower";
++        if (key == "step_db" && !(number > 0 && number <= 3)) return "step_db must be above 0 and at most 3 dB";
++    } else if (key == "optical_input") {
++        if (value.empty()) return "optical_input must not be empty";
++        next.optical_input = value;
++    } else if (key == "spotify_source") {
++        if (value.empty()) return "spotify_source must not be empty";
++        next.spotify_source = value;
++    } else {
++        return "unknown setting: " + key;
++    }
++    config = next;
++    return "";
++}
++
++bool is_secret_key(const std::string& key) { return key == "wifi_pass"; }
++
++}  // namespace knob
+diff --git a/firmware/lib/knob_core/src/config.h b/firmware/lib/knob_core/src/config.h
+new file mode 100644
+index 0000000..8c62124
+--- /dev/null
++++ b/firmware/lib/knob_core/src/config.h
+@@ -0,0 +1,28 @@
++// Device configuration and its validation. Portable; persisted by the NVS adapter.
++#pragma once
++
++#include <string>
++
++namespace knob {
++
++struct Config {
++    std::string wifi_ssid;
++    std::string wifi_pass;
++    std::string host;
++    int port = 11000;
++    double max_db = -24;
++    double source_safe_db = -40;
++    double step_db = 1;
++    std::string optical_input = "optical-2";
++    std::string spotify_source = "Spotify";
++};
++
++// Empty string when valid, else the first problem in plain words.
++std::string validate_config(const Config& config);
++
++// Applies one `set <key> <value>`; leaves config untouched and returns an error when the value is invalid.
++std::string apply_setting(Config& config, const std::string& key, const std::string& value);
++
++bool is_secret_key(const std::string& key);
++
++}  // namespace knob
+diff --git a/firmware/lib/knob_core/src/timing.cpp b/firmware/lib/knob_core/src/timing.cpp
+new file mode 100644
+index 0000000..fcb16d9
+--- /dev/null
++++ b/firmware/lib/knob_core/src/timing.cpp
+@@ -0,0 +1,17 @@
++#include "timing.h"
++
++namespace knob {
++
++uint32_t Backoff::on_failure() {
++    const uint32_t wait = next_;
++    next_ = (next_ > max_ / 2) ? max_ : next_ * 2;
++    return wait;
++}
++
++void Backoff::on_success() { next_ = min_; }
++
++void Dimmer::touch(uint32_t now_ms) { last_ = now_ms; }
++
++bool Dimmer::dimmed(uint32_t now_ms) const { return static_cast<uint32_t>(now_ms - last_) >= after_; }
++
++}  // namespace knob
+diff --git a/firmware/lib/knob_core/src/timing.h b/firmware/lib/knob_core/src/timing.h
+new file mode 100644
+index 0000000..97b26c9
+--- /dev/null
++++ b/firmware/lib/knob_core/src/timing.h
+@@ -0,0 +1,30 @@
++// Clock-free timing helpers; callers pass millis() so tests can drive time.
++#pragma once
++
++#include <cstdint>
++
++namespace knob {
++
++class Backoff {
++   public:
++    Backoff(uint32_t min_ms, uint32_t max_ms) : min_(min_ms), max_(max_ms), next_(min_ms) {}
++    uint32_t on_failure();  // returns the delay to wait before the next attempt
++    void on_success();
++    uint32_t next() const { return next_; }
++
++   private:
++    uint32_t min_, max_, next_;
++};
++
++class Dimmer {
++   public:
++    explicit Dimmer(uint32_t dim_after_ms) : after_(dim_after_ms) {}
++    void touch(uint32_t now_ms);
++    bool dimmed(uint32_t now_ms) const;
++
++   private:
++    uint32_t after_;
++    uint32_t last_ = 0;
++};
++
++}  // namespace knob
+diff --git a/firmware/platformio.ini b/firmware/platformio.ini
+index 66b7c37..c1199a4 100644
+--- a/firmware/platformio.ini
++++ b/firmware/platformio.ini
+@@ -10,6 +10,8 @@ platform = espressif32
+ board = m5stick-c
+ framework = arduino
+ monitor_speed = 115200
++; No OTA (plan non-goal): one 3 MB app partition fits BLE + Wi-Fi + HTTP + M5Unified.
++board_build.partitions = huge_app.csv
+ lib_deps =
+     m5stack/M5Unified@^0.2.2
+     h2zero/NimBLE-Arduino@^2.1.0
+@@ -26,3 +28,4 @@ build_flags =
+     -std=c++17
+     -Wall
+     -Wextra
++    -D UNITY_INCLUDE_DOUBLE
+diff --git a/firmware/src/bluos_client.cpp b/firmware/src/bluos_client.cpp
+new file mode 100644
+index 0000000..f533881
+--- /dev/null
++++ b/firmware/src/bluos_client.cpp
+@@ -0,0 +1,97 @@
++#include "bluos_client.h"
++
++#include <Arduino.h>
++#include <HTTPClient.h>
++#include <WiFi.h>
++#include <freertos/semphr.h>
++
++#include "timing.h"
++
++namespace {
++
++constexpr uint32_t kPollMs = 2000;
++constexpr uint32_t kHttpTimeoutMs = 2000;
++
++std::string g_host;
++int g_port = 11000;
++AmpState g_state;
++SemaphoreHandle_t g_lock = nullptr;
++
++bool http_get(const char* path, std::string* body, std::string* error) {
++    HTTPClient http;
++    const String url = String("http://") + g_host.c_str() + ":" + g_port + path;
++    http.setConnectTimeout(kHttpTimeoutMs);
++    http.setTimeout(kHttpTimeoutMs);
++    if (!http.begin(url)) {
++        *error = "bad amp address";
++        return false;
++    }
++    const int code = http.GET();
++    if (code != 200) {
++        *error = code < 0 ? std::string("can't reach amp ") + g_host : "amp replied HTTP " + std::to_string(code);
++        http.end();
++        return false;
++    }
++    *body = http.getString().c_str();
++    http.end();
++    return true;
++}
++
++void poll_task(void*) {
++    knob::Backoff backoff(kPollMs, 30000);
++    for (;;) {
++        uint32_t wait = kPollMs;
++        if (WiFi.status() == WL_CONNECTED) {
++            std::string body, error;
++            knob::VolumeInfo volume;
++            knob::StatusInfo status;
++            bool ok = http_get("/Volume", &body, &error);
++            if (ok) {
++                volume = knob::parse_volume(body);
++                if (!volume.ok) {
++                    ok = false;
++                    error = "amp sent an unreadable volume";
++                }
++            }
++            if (ok && http_get("/Status", &body, &error)) status = knob::parse_status(body);
++            xSemaphoreTake(g_lock, portMAX_DELAY);
++            if (ok) {
++                g_state.reachable = true;
++                g_state.have_data = true;
++                g_state.volume = volume;
++                if (status.ok) g_state.status = status;
++                g_state.error.clear();
++                g_state.updated_ms = millis();
++                g_state.failures = 0;
++                backoff.on_success();
++            } else {
++                g_state.reachable = false;
++                g_state.error = error;
++                g_state.failures++;
++                wait = backoff.on_failure();
++            }
++            xSemaphoreGive(g_lock);
++            if (!ok) Serial.printf("{\"amp\":\"unreachable\",\"error\":\"%s\",\"retry_ms\":%lu}\n", error.c_str(),
++                                   static_cast<unsigned long>(wait));
++        }
++        vTaskDelay(pdMS_TO_TICKS(wait));
++    }
++}
++
++}  // namespace
++
++void bluos_start(const std::string& host, int port) {
++    g_host = host;
++    g_port = port;
++    g_lock = xSemaphoreCreateMutex();
++    xTaskCreatePinnedToCore(poll_task, "bluos", 8192, nullptr, 1, nullptr, 1);
++}
++
++AmpState bluos_snapshot() {
++    AmpState copy;
++    if (g_lock == nullptr) return copy;
++    xSemaphoreTake(g_lock, portMAX_DELAY);
++    copy = g_state;
++    xSemaphoreGive(g_lock);
++    return copy;
++}
+diff --git a/firmware/src/bluos_client.h b/firmware/src/bluos_client.h
+new file mode 100644
+index 0000000..03a496c
+--- /dev/null
++++ b/firmware/src/bluos_client.h
+@@ -0,0 +1,19 @@
++// Read-only BluOS poller. Runs in its own FreeRTOS task so HTTP timeouts never stall the UI or BLE.
++#pragma once
++
++#include <string>
++
++#include "bluos_xml.h"
++
++struct AmpState {
++    bool reachable = false;
++    bool have_data = false;
++    knob::VolumeInfo volume;
++    knob::StatusInfo status;
++    std::string error;       // last failure, plain words
++    uint32_t updated_ms = 0;
++    uint32_t failures = 0;
++};
++
++void bluos_start(const std::string& host, int port);
++AmpState bluos_snapshot();
+diff --git a/firmware/src/config_store.cpp b/firmware/src/config_store.cpp
+new file mode 100644
+index 0000000..a8da895
+--- /dev/null
++++ b/firmware/src/config_store.cpp
+@@ -0,0 +1,38 @@
++#include "config_store.h"
++
++#include <Preferences.h>
++
++namespace {
++constexpr const char* kNamespace = "bluos-knob";
++}
++
++void config_load(knob::Config& c) {
++    Preferences p;
++    p.begin(kNamespace, true);
++    c.wifi_ssid = p.getString("wifi_ssid", c.wifi_ssid.c_str()).c_str();
++    c.wifi_pass = p.getString("wifi_pass", c.wifi_pass.c_str()).c_str();
++    c.host = p.getString("host", c.host.c_str()).c_str();
++    c.port = p.getInt("port", c.port);
++    c.max_db = p.getDouble("max_db", c.max_db);
++    c.source_safe_db = p.getDouble("src_safe_db", c.source_safe_db);
++    c.step_db = p.getDouble("step_db", c.step_db);
++    c.optical_input = p.getString("optical_input", c.optical_input.c_str()).c_str();
++    c.spotify_source = p.getString("spotify_src", c.spotify_source.c_str()).c_str();
++    p.end();
++}
++
++bool config_save(const knob::Config& c) {
++    Preferences p;
++    if (!p.begin(kNamespace, false)) return false;
++    bool ok = p.putString("wifi_ssid", c.wifi_ssid.c_str()) == c.wifi_ssid.size();
++    ok = (p.putString("wifi_pass", c.wifi_pass.c_str()) == c.wifi_pass.size()) && ok;
++    ok = (p.putString("host", c.host.c_str()) == c.host.size()) && ok;
++    ok = p.putInt("port", c.port) > 0 && ok;
++    ok = p.putDouble("max_db", c.max_db) > 0 && ok;
++    ok = p.putDouble("src_safe_db", c.source_safe_db) > 0 && ok;
++    ok = p.putDouble("step_db", c.step_db) > 0 && ok;
++    ok = p.putString("optical_input", c.optical_input.c_str()) == c.optical_input.size() && ok;
++    ok = p.putString("spotify_src", c.spotify_source.c_str()) == c.spotify_source.size() && ok;
++    p.end();
++    return ok;
++}
+diff --git a/firmware/src/config_store.h b/firmware/src/config_store.h
+new file mode 100644
+index 0000000..ac104c5
+--- /dev/null
++++ b/firmware/src/config_store.h
+@@ -0,0 +1,7 @@
++// Persists knob::Config in NVS (ESP32 Preferences).
++#pragma once
++
++#include "config.h"
++
++void config_load(knob::Config& config);
++bool config_save(const knob::Config& config);
+diff --git a/firmware/src/display_ui.cpp b/firmware/src/display_ui.cpp
+index 603aebf..37f9a30 100644
+--- a/firmware/src/display_ui.cpp
++++ b/firmware/src/display_ui.cpp
+@@ -4,10 +4,13 @@
+ 
+ namespace {
+ 
+-UiState g_drawn{};
+-bool g_first = true;
++constexpr uint8_t kBright = 128;
++constexpr uint8_t kDim = 8;
+ 
+-uint16_t link_colour(KnobLink link) {
++std::string g_last_key;
++bool g_dimmed_drawn = false;
++
++uint16_t knob_colour(KnobLink link) {
+     switch (link) {
+         case KnobLink::Connected: return TFT_GREEN;
+         case KnobLink::Scanning:
+@@ -16,38 +19,65 @@ uint16_t link_colour(KnobLink link) {
+     }
+ }
+ 
++uint16_t wifi_colour(WifiLink wifi) {
++    switch (wifi) {
++        case WifiLink::Connected: return TFT_GREEN;
++        case WifiLink::Connecting: return TFT_YELLOW;
++        default: return TFT_RED;
++    }
++}
++
+ const char* action_label(knob::Action action) {
+     switch (action) {
+         case knob::Action::VolumeUp: return "VOL +";
+         case knob::Action::VolumeDown: return "VOL -";
+         case knob::Action::MuteToggle: return "MUTE";
+-        case knob::Action::BrightnessUp: return "SRC: Spotify";
+-        case knob::Action::BrightnessDown: return "SRC: Optical";
+-        case knob::Action::NoOp: return "-";
+-        case knob::Action::Unknown: return "?";
++        case knob::Action::BrightnessUp: return "Spotify";
++        case knob::Action::BrightnessDown: return "Optical";
++        default: return "";
+     }
+-    return "?";
+ }
+ 
+-bool same(const UiState& a, const UiState& b) {
+-    return a.link == b.link && a.last_action == b.last_action && a.events == b.events &&
+-           a.overflow == b.overflow;
++std::string db_text(const AmpState& amp) {
++    if (!amp.have_data) return "--";
++    char buf[16];
++    snprintf(buf, sizeof(buf), "%.1f", amp.volume.db);
++    std::string s(buf);
++    if (s.size() > 2 && s.compare(s.size() - 2, 2, ".0") == 0) s.resize(s.size() - 2);
++    return s;
++}
++
++std::string source_text(const AmpState& amp) {
++    if (!amp.have_data) return "";
++    if (!amp.status.title.empty()) return amp.status.title;
++    return amp.status.service;
++}
++
++std::string render_key(const UiState& s) {
++    char buf[32];
++    snprintf(buf, sizeof(buf), "|%d|%d|%d|%d|%d|%d", static_cast<int>(s.link), static_cast<int>(s.wifi),
++             s.amp.reachable, s.amp.volume.mute, static_cast<int>(s.last_action), s.show_action);
++    return db_text(s.amp) + source_text(s.amp) + s.fault + buf;
+ }
+ 
+ }  // namespace
+ 
+ void ui_begin() {
+     M5.Display.setRotation(1);
+-    M5.Display.setTextDatum(textdatum_t::top_left);
++    M5.Display.setBrightness(kBright);
+     M5.Display.fillScreen(TFT_BLACK);
+ }
+ 
+ void ui_render(const UiState& s) {
+-    if (!g_first && same(s, g_drawn)) return;
+-    g_first = false;
+-    g_drawn = s;
+-
+     auto& d = M5.Display;
++    if (s.dimmed != g_dimmed_drawn) {
++        d.setBrightness(s.dimmed ? kDim : kBright);
++        g_dimmed_drawn = s.dimmed;
++    }
++    const std::string key = render_key(s);
++    if (key == g_last_key) return;
++    g_last_key = key;
++
+     const int w = d.width();
+     const int h = d.height();
+     const bool small = h < 100;  // StickC 80x160 vs StickC Plus 135x240
+@@ -55,24 +85,63 @@ void ui_render(const UiState& s) {
+     d.startWrite();
+     d.fillScreen(TFT_BLACK);
+ 
++    // Status bar: Wi-Fi left, knob right, 16 px proportional font.
+     d.setTextSize(1);
+-    d.setTextColor(TFT_DARKGREY, TFT_BLACK);
+-    d.drawString("BluOS Knob", 2, 2);
+-    d.drawRightString(s.board, w - 2, 2);
+-
+-    d.fillCircle(6, small ? 18 : 22, 4, link_colour(s.link));
+-    d.setTextColor(TFT_WHITE, TFT_BLACK);
+-    d.drawString(String("knob ") + knob_link_name(s.link), 14, small ? 14 : 18);
++    d.setFont(&fonts::Font2);
++    d.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
++    d.setTextDatum(textdatum_t::middle_left);
++    d.fillCircle(8, 9, 5, wifi_colour(s.wifi));
++    d.drawString("Wi-Fi", 18, 9);
++    d.setTextDatum(textdatum_t::middle_right);
++    d.fillCircle(w - 8, 9, 5, knob_colour(s.link));
++    d.drawString("Knob", w - 18, 9);
+ 
+-    d.setTextSize(small ? 2 : 3);
++    // Centre: big dB (or the knob action briefly, or MUTED).
++    const int cy = h / 2 - (small ? 0 : 2);
+     d.setTextDatum(textdatum_t::middle_center);
+-    d.drawString(action_label(s.last_action), w / 2, h / 2 + (small ? 4 : 6));
+-    d.setTextDatum(textdatum_t::top_left);
++    if (s.show_action && s.last_action != knob::Action::NoOp && s.last_action != knob::Action::Unknown) {
++        d.setFont(&fonts::Font4);
++        d.setTextSize(small ? 1 : 2);
++        d.setTextColor(TFT_CYAN, TFT_BLACK);
++        d.drawString(action_label(s.last_action), w / 2, cy);
++    } else if (s.amp.have_data && s.amp.volume.mute) {
++        d.setFont(&fonts::Font4);
++        d.setTextSize(small ? 1 : 2);
++        d.setTextColor(TFT_ORANGE, TFT_BLACK);
++        d.drawString("MUTED", w / 2, cy);
++    } else {
++        const std::string db = db_text(s.amp);
++        d.setFont(small ? &fonts::Font4 : &fonts::Font7);
++        d.setTextSize(1);
++        d.setTextColor(s.amp.reachable ? TFT_WHITE : TFT_DARKGREY, TFT_BLACK);
++        const int db_w = d.textWidth(db.c_str());
++        d.setFont(small ? &fonts::Font2 : &fonts::Font4);
++        const int unit_w = d.textWidth("dB");
++        const int left = (w - db_w - 4 - unit_w) / 2;
++        d.setFont(small ? &fonts::Font4 : &fonts::Font7);
++        d.setTextDatum(textdatum_t::middle_left);
++        d.drawString(db.c_str(), left, cy);
++        d.setFont(small ? &fonts::Font2 : &fonts::Font4);
++        d.setTextDatum(textdatum_t::bottom_left);
++        d.drawString("dB", left + db_w + 4, cy + (small ? 9 : 22));
++    }
+ 
++    // Source line.
++    d.setFont(small ? &fonts::Font2 : &fonts::Font4);
+     d.setTextSize(1);
+-    d.setTextColor(TFT_DARKGREY, TFT_BLACK);
+-    String footer = String("events ") + s.events;
+-    if (s.overflow) footer += String("  dropped ") + s.overflow;
+-    d.drawString(footer, 2, h - 10);
++    d.setTextDatum(textdatum_t::middle_center);
++    d.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
++    d.drawString(source_text(s.amp).substr(0, small ? 18 : 16).c_str(), w / 2, h - (small ? 24 : 36));
++
++    // Fault / status line.
++    d.setFont(&fonts::Font2);
++    d.setTextDatum(textdatum_t::bottom_center);
++    if (!s.fault.empty()) {
++        d.setTextColor(TFT_RED, TFT_BLACK);
++        d.drawString(s.fault.substr(0, small ? 22 : 34).c_str(), w / 2, h - 1);
++    } else {
++        d.setTextColor(TFT_DARKGREY, TFT_BLACK);
++        d.drawString("read-only", w / 2, h - 1);
++    }
+     d.endWrite();
+ }
+diff --git a/firmware/src/display_ui.h b/firmware/src/display_ui.h
+index 1eca4bc..6cb753d 100644
+--- a/firmware/src/display_ui.h
++++ b/firmware/src/display_ui.h
+@@ -3,15 +3,24 @@
+ 
+ #include <Arduino.h>
+ 
++#include <string>
++
+ #include "ble_knob.h"
++#include "bluos_client.h"
+ #include "decoder.h"
+ 
++enum class WifiLink { NotConfigured, Connecting, Connected };
++
+ struct UiState {
+     const char* board;
+     KnobLink link;
++    WifiLink wifi;
++    AmpState amp;
++    std::string fault;        // highest-priority problem in plain words, empty when healthy
+     knob::Action last_action;
++    bool show_action;         // briefly after a knob event
++    bool dimmed;
+     uint32_t events;
+-    uint32_t overflow;
+ };
+ 
+ void ui_begin();
+diff --git a/firmware/src/main.cpp b/firmware/src/main.cpp
+index eca4207..d0a35cd 100644
+--- a/firmware/src/main.cpp
++++ b/firmware/src/main.cpp
+@@ -1,20 +1,47 @@
+ #include <Arduino.h>
+ #include <M5Unified.h>
++#include <WiFi.h>
+ 
+ #include "ble_knob.h"
++#include "bluos_client.h"
++#include "config.h"
++#include "config_store.h"
+ #include "decoder.h"
+ #include "display_ui.h"
+ #include "knob_event.h"
++#include "timing.h"
+ 
+ namespace {
+ 
+ constexpr size_t kQueueDepth = 16;
+ constexpr const char* kKnobNameHint = "ANTICATER";
++constexpr uint32_t kDimAfterMs = 30000;
++constexpr uint32_t kActionShowMs = 1500;
+ 
+ QueueHandle_t g_events = nullptr;
+ BleKnob g_knob;
++knob::Config g_config;
++std::string g_config_error;
+ UiState g_ui{};
++knob::Dimmer g_dimmer(kDimAfterMs);
++uint32_t g_action_at = 0;
++std::string g_last_amp_key;
+ String g_line;
++bool g_wifi_reported = false;
++volatile int g_wifi_reason = 0;  // last STA disconnect reason (esp_wifi wifi_err_reason_t)
++
++const char* wifi_reason_text(int reason) {
++    switch (reason) {
++        case 201: return "Wi-Fi network not found (2.4 GHz only)";
++        case 2:
++        case 15:
++        case 202:
++        case 204: return "Wi-Fi password rejected?";
++        case 203: return "Wi-Fi: too many devices on AP";
++        case 200: return "Wi-Fi: beacon timeout";
++        default: return nullptr;
++    }
++}
+ 
+ const char* board_name() {
+     switch (M5.getBoard()) {
+@@ -40,27 +67,97 @@ void handle_event(const KnobEvent& ev) {
+     if (decoded.action == knob::Action::NoOp) return;
+     g_ui.events++;
+     g_ui.last_action = decoded.action;
++    g_action_at = millis();
++    g_dimmer.touch(g_action_at);
+     Serial.printf("{\"seq\":%lu,\"action\":\"%s\",\"raw\":\"%s\",\"usage\":\"0x%04x\",\"t_ms\":%lu}\n",
+                   static_cast<unsigned long>(g_ui.events), knob::action_name(decoded.action),
+                   hex(ev.data, ev.len).c_str(), decoded.usage, static_cast<unsigned long>(ev.at_ms));
+ }
+ 
+-void handle_command(const String& cmd) {
+-    if (cmd == "scan") {
++void wifi_begin() {
++    WiFi.disconnect(true);
++    g_config_error = knob::validate_config(g_config);
++    if (!g_config_error.empty()) {
++        Serial.printf("{\"config\":\"invalid\",\"error\":\"%s\"}\n", g_config_error.c_str());
++        return;
++    }
++    WiFi.onEvent(
++        [](arduino_event_id_t, arduino_event_info_t info) {
++            g_wifi_reason = info.wifi_sta_disconnected.reason;
++            Serial.printf("{\"wifi\":\"disconnected\",\"reason\":%d}\n", g_wifi_reason);
++        },
++        ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
++    WiFi.mode(WIFI_STA);
++    WiFi.setSleep(true);  // modem sleep is required for Wi-Fi/BLE coexistence
++    WiFi.setAutoReconnect(true);
++    WiFi.begin(g_config.wifi_ssid.c_str(), g_config.wifi_pass.c_str());
++    g_wifi_reported = false;
++    Serial.printf("{\"wifi\":\"connecting\",\"ssid\":\"%s\"}\n", g_config.wifi_ssid.c_str());
++}
++
++void print_config() {
++    Serial.printf(
++        "{\"wifi_ssid\":\"%s\",\"wifi_pass\":\"%s\",\"host\":\"%s\",\"port\":%d,\"max_db\":%.1f,"
++        "\"source_safe_db\":%.1f,\"step_db\":%.1f,\"optical_input\":\"%s\",\"spotify_source\":\"%s\",\"valid\":%s}\n",
++        g_config.wifi_ssid.c_str(), g_config.wifi_pass.empty() ? "" : "****", g_config.host.c_str(), g_config.port,
++        g_config.max_db, g_config.source_safe_db, g_config.step_db, g_config.optical_input.c_str(),
++        g_config.spotify_source.c_str(), knob::validate_config(g_config).empty() ? "true" : "false");
++}
++
++void handle_command(const String& line) {
++    const std::string cmd(line.c_str());
++    if (cmd.rfind("set ", 0) == 0) {
++        const size_t space = cmd.find(' ', 4);
++        const std::string key = cmd.substr(4, space == std::string::npos ? std::string::npos : space - 4);
++        const std::string value = space == std::string::npos ? "" : cmd.substr(space + 1);
++        const std::string error = knob::apply_setting(g_config, key, value);
++        if (!error.empty()) {
++            Serial.printf("{\"set\":\"%s\",\"ok\":false,\"error\":\"%s\"}\n", key.c_str(), error.c_str());
++        } else if (!config_save(g_config)) {
++            Serial.printf("{\"set\":\"%s\",\"ok\":false,\"error\":\"could not save\"}\n", key.c_str());
++        } else {
++            Serial.printf("{\"set\":\"%s\",\"ok\":true}\n", key.c_str());  // value never echoed
++        }
++    } else if (cmd == "show") {
++        print_config();
++    } else if (cmd == "reboot") {
++        Serial.println("{\"reboot\":true}");
++        Serial.flush();
++        ESP.restart();
++    } else if (cmd == "wifi scan") {
++        WiFi.setAutoReconnect(false);
++        WiFi.disconnect(true);  // stop the pending connect; a scan fails while one is in progress
++        WiFi.mode(WIFI_STA);
++        delay(300);
++        const int n = WiFi.scanNetworks(false, true);
++        Serial.printf("{\"wifi_scan\":%d}\n", n);
++        for (int i = 0; i < n; ++i) {
++            Serial.printf("{\"ssid\":\"%s\",\"rssi\":%d,\"channel\":%d,\"auth\":%d}\n", WiFi.SSID(i).c_str(),
++                          WiFi.RSSI(i), WiFi.channel(i), static_cast<int>(WiFi.encryptionType(i)));
++        }
++        WiFi.scanDelete();
++        wifi_begin();
++    } else if (cmd == "scan") {
+         g_knob.diag_scan(15000);
+     } else if (cmd == "bonds clear") {
+         g_knob.clear_bonds();
+     } else if (cmd == "status") {
+-        Serial.printf("{\"board\":\"%s\",\"knob\":\"%s\",\"peer\":\"%s\",\"events\":%lu,\"dropped\":%lu,"
+-                      "\"reconnects\":%lu,\"free_heap\":%lu,\"min_free_heap\":%lu}\n",
+-                      board_name(), knob_link_name(g_knob.link()), g_knob.peer_name().c_str(),
+-                      static_cast<unsigned long>(g_ui.events),
+-                      static_cast<unsigned long>(g_knob.overflow_count()),
+-                      static_cast<unsigned long>(g_knob.reconnects()),
+-                      static_cast<unsigned long>(ESP.getFreeHeap()),
+-                      static_cast<unsigned long>(ESP.getMinFreeHeap()));
+-    } else if (cmd.length() > 0) {
+-        Serial.printf("{\"error\":\"unknown command\",\"commands\":[\"status\",\"scan\",\"bonds clear\"]}\n");
++        const AmpState amp = bluos_snapshot();
++        Serial.printf(
++            "{\"board\":\"%s\",\"knob\":\"%s\",\"peer\":\"%s\",\"wifi\":\"%s\",\"ip\":\"%s\",\"rssi\":%d,"
++            "\"amp\":\"%s\",\"db\":%.1f,\"mute\":%d,\"source\":\"%s\",\"amp_failures\":%lu,\"fault\":\"%s\","
++            "\"events\":%lu,\"dropped\":%lu,\"reconnects\":%lu,\"free_heap\":%lu,\"min_free_heap\":%lu}\n",
++            board_name(), knob_link_name(g_knob.link()), g_knob.peer_name().c_str(),
++            WiFi.status() == WL_CONNECTED ? "connected" : "down", WiFi.localIP().toString().c_str(),
++            WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0, amp.reachable ? "ok" : "unreachable", amp.volume.db,
++            amp.volume.mute, amp.status.title.c_str(), static_cast<unsigned long>(amp.failures),
++            g_ui.fault.c_str(), static_cast<unsigned long>(g_ui.events),
++            static_cast<unsigned long>(g_knob.overflow_count()), static_cast<unsigned long>(g_knob.reconnects()),
++            static_cast<unsigned long>(ESP.getFreeHeap()), static_cast<unsigned long>(ESP.getMinFreeHeap()));
++    } else if (!cmd.empty()) {
++        Serial.println(
++            "{\"error\":\"unknown command\",\"commands\":[\"status\",\"show\",\"set <key> <value>\",\"reboot\","
++            "\"scan\",\"wifi scan\",\"bonds clear\"]}");
+     }
+ }
+ 
+@@ -71,12 +168,23 @@ void poll_serial() {
+             g_line.trim();
+             handle_command(g_line);
+             g_line = "";
+-        } else if (g_line.length() < 128) {
++        } else if (g_line.length() < 160) {
+             g_line += c;
+         }
+     }
+ }
+ 
++std::string current_fault(const AmpState& amp) {
++    if (!g_config_error.empty()) return g_config_error;
++    if (WiFi.status() != WL_CONNECTED) {
++        const char* why = wifi_reason_text(g_wifi_reason);
++        return why ? std::string(why) : std::string("Wi-Fi: connecting to ") + g_config.wifi_ssid;
++    }
++    if (!amp.reachable && amp.failures > 0) return amp.error;
++    if (g_knob.link() != KnobLink::Connected) return "knob not connected";
++    return "";
++}
++
+ }  // namespace
+ 
+ void setup() {
+@@ -86,10 +194,14 @@ void setup() {
+     g_events = xQueueCreate(kQueueDepth, sizeof(KnobEvent));
+     g_ui.board = board_name();
+     g_ui.last_action = knob::Action::NoOp;
++    config_load(g_config);
+     ui_begin();
+     Serial.printf("{\"boot\":\"bluos-knob\",\"board\":\"%s\",\"free_heap\":%lu}\n", g_ui.board,
+                   static_cast<unsigned long>(ESP.getFreeHeap()));
+     g_knob.begin(g_events, kKnobNameHint);
++    wifi_begin();
++    if (g_config_error.empty()) bluos_start(g_config.host, g_config.port);
++    g_dimmer.touch(millis());
+ }
+ 
+ void loop() {
+@@ -98,8 +210,34 @@ void loop() {
+     KnobEvent ev;
+     while (xQueueReceive(g_events, &ev, 0) == pdTRUE) handle_event(ev);
+     poll_serial();
++
++    const uint32_t now = millis();
++    if (WiFi.status() == WL_CONNECTED && !g_wifi_reported) {
++        g_wifi_reported = true;
++        g_wifi_reason = 0;
++        Serial.printf("{\"wifi\":\"connected\",\"ip\":\"%s\",\"rssi\":%d}\n", WiFi.localIP().toString().c_str(),
++                      WiFi.RSSI());
++    } else if (WiFi.status() != WL_CONNECTED && g_wifi_reported) {
++        g_wifi_reported = false;
++        Serial.println("{\"wifi\":\"lost\"}");
++    }
++
++    g_ui.amp = bluos_snapshot();
++    char amp_key[48];
++    snprintf(amp_key, sizeof(amp_key), "%.1f|%d|", g_ui.amp.volume.db, g_ui.amp.volume.mute);
++    const std::string key = std::string(amp_key) + g_ui.amp.status.title;
++    if (g_ui.amp.have_data && key != g_last_amp_key) {
++        if (!g_last_amp_key.empty()) g_dimmer.touch(now);  // wake on volume/source change
++        g_last_amp_key = key;
++    }
++
+     g_ui.link = g_knob.link();
+-    g_ui.overflow = g_knob.overflow_count();
++    g_ui.wifi = !g_config_error.empty() ? WifiLink::NotConfigured
++                : WiFi.status() == WL_CONNECTED ? WifiLink::Connected
++                                                : WifiLink::Connecting;
++    g_ui.fault = current_fault(g_ui.amp);
++    g_ui.show_action = (now - g_action_at) < kActionShowMs && g_ui.events > 0;
++    g_ui.dimmed = g_dimmer.dimmed(now) && g_ui.fault.empty();
+     ui_render(g_ui);
+     delay(10);
+ }
+diff --git a/firmware/test/test_bluos_xml/test_bluos_xml.cpp b/firmware/test/test_bluos_xml/test_bluos_xml.cpp
+new file mode 100644
+index 0000000..8e8e948
+--- /dev/null
++++ b/firmware/test/test_bluos_xml/test_bluos_xml.cpp
+@@ -0,0 +1,110 @@
++#include <unity.h>
++
++#include <string>
++
++#include "bluos_xml.h"
++
++// Captured from the NAD M33 (192.168.1.67) on 2026-11-17; copies in tests/fixtures/bluos/.
++static const std::string kVolumeXml =
++    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
++    "<volume db=\"-39\" offsetDb=\"0\" mute=\"0\" etag=\"d7429bdf863af05d666c68ec4474a85c\" source=\"\">70</volume>";
++static const std::string kStatusXml =
++    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
++    "<status etag=\"0726818f8cc9f7334224ef8d04e55983\"><actions><action name=\"back\"></action></actions>"
++    "<canSeek>0</canSeek><currentImage>/images/capture/ic_opticalinputNP.png</currentImage><cursor>0</cursor>"
++    "<db>-39</db><image>/images/capture/ic_opticalinputNP.png</image><indexing>0</indexing>"
++    "<inputId>xdynamic-Source1</inputId><inputTypeIndex>optical-1</inputTypeIndex><mid>0</mid><mode>1</mode>"
++    "<mute>0</mute><pid>31</pid><prid>0</prid><repeat>2</repeat><secs>98670</secs><service>Capture</service>"
++    "<serviceType>AudioInputs</serviceType><settingsGroupId>capture-xdynamic-Source1</settingsGroupId>"
++    "<shuffle>0</shuffle><sid>6</sid><sleep></sleep><song>0</song><state>stream</state>"
++    "<stationImage>/images/capture/ic_opticalinputNP.png</stationImage>"
++    "<streamUrl>Capture:hw:imxnadadc,0/1/25/2?id=xdynamic-Source1</streamUrl><syncStat>1155</syncStat>"
++    "<title1>Optical 1</title1><twoline_title1>Optical 1</twoline_title1><volume>70</volume></status>";
++
++void setUp() {}
++void tearDown() {}
++
++void given_real_volume_response_when_parsed_then_db_mute_level() {
++    /*
++    Test Doc:
++    - Why: The screen and (later) the safety policy depend on the amp's current dB.
++    - Contract: parse_volume reads the db and mute attributes and the level text of <volume>.
++    - Usage Notes: Feed the raw HTTP body.
++    - Quality Contribution: Catches attribute parsing that confuses db with offsetDb.
++    - Worked Example: db="-39" offsetDb="0" mute="0" >70 -> ok, -39, false, 70.
++    */
++    knob::VolumeInfo v = knob::parse_volume(kVolumeXml);
++    TEST_ASSERT_TRUE(v.ok);
++    TEST_ASSERT_EQUAL_DOUBLE(-39, v.db);
++    TEST_ASSERT_FALSE(v.mute);
++    TEST_ASSERT_EQUAL_INT(70, v.level);
++    knob::VolumeInfo m = knob::parse_volume("<volume db=\"-45.5\" mute=\"1\">60</volume>");
++    TEST_ASSERT_TRUE(m.ok);
++    TEST_ASSERT_EQUAL_DOUBLE(-45.5, m.db);
++    TEST_ASSERT_TRUE(m.mute);
++}
++
++void given_missing_or_garbled_db_when_parsed_then_not_ok() {
++    /*
++    Test Doc:
++    - Why: Fail closed: an unknown volume must never be treated as a number (plan review finding 1).
++    - Contract: parse_volume.ok is false when db is absent, empty, non-numeric, or not finite; or the body is not <volume>.
++    - Usage Notes: Callers must check ok before using db.
++    - Quality Contribution: Catches a 0 dB default sneaking through.
++    - Worked Example: <volume mute="0">70</volume> -> ok=false; db="loud" -> ok=false; db="nan" -> ok=false.
++    */
++    TEST_ASSERT_FALSE(knob::parse_volume("<volume mute=\"0\">70</volume>").ok);
++    TEST_ASSERT_FALSE(knob::parse_volume("<volume db=\"\" mute=\"0\">70</volume>").ok);
++    TEST_ASSERT_FALSE(knob::parse_volume("<volume db=\"loud\">70</volume>").ok);
++    TEST_ASSERT_FALSE(knob::parse_volume("<volume db=\"nan\">70</volume>").ok);
++    TEST_ASSERT_FALSE(knob::parse_volume("<html>error</html>").ok);
++    TEST_ASSERT_FALSE(knob::parse_volume("").ok);
++}
++
++void given_real_status_response_when_parsed_then_source_fields() {
++    /*
++    Test Doc:
++    - Why: The idle screen shows the current source and volume.
++    - Contract: parse_status extracts service, title1, inputTypeIndex, state, db and mute from <status>.
++    - Usage Notes: <db> may be absent for some services; check has_db.
++    - Quality Contribution: Catches matching <title1> inside <twoline_title1>.
++    - Worked Example: real capture -> Capture / "Optical 1" / optical-1 / stream / -39 dB.
++    */
++    knob::StatusInfo s = knob::parse_status(kStatusXml);
++    TEST_ASSERT_TRUE(s.ok);
++    TEST_ASSERT_EQUAL_STRING("Capture", s.service.c_str());
++    TEST_ASSERT_EQUAL_STRING("Optical 1", s.title.c_str());
++    TEST_ASSERT_EQUAL_STRING("optical-1", s.input_type_index.c_str());
++    TEST_ASSERT_EQUAL_STRING("stream", s.state.c_str());
++    TEST_ASSERT_TRUE(s.has_db);
++    TEST_ASSERT_EQUAL_DOUBLE(-39, s.db);
++    TEST_ASSERT_FALSE(s.mute);
++}
++
++void given_status_with_entities_and_no_db_when_parsed_then_decoded_and_flagged() {
++    /*
++    Test Doc:
++    - Why: Track titles contain &amp; etc., and some sources omit <db>.
++    - Contract: XML entities in text are decoded; has_db is false without <db>.
++    - Usage Notes: Titles are shown on screen as-is after decoding.
++    - Quality Contribution: Catches "&amp;" on screen and a phantom 0 dB.
++    - Worked Example: <title1>Simon &amp; Garfunkel</title1> -> "Simon & Garfunkel".
++    */
++    knob::StatusInfo s = knob::parse_status(
++        "<status><service>Spotify</service><title1>Simon &amp; Garfunkel &lt;Live&gt;</title1>"
++        "<state>play</state><mute>1</mute></status>");
++    TEST_ASSERT_TRUE(s.ok);
++    TEST_ASSERT_EQUAL_STRING("Simon & Garfunkel <Live>", s.title.c_str());
++    TEST_ASSERT_FALSE(s.has_db);
++    TEST_ASSERT_TRUE(s.mute);
++    TEST_ASSERT_FALSE(knob::parse_status("<volume db=\"-3\"/>").ok);
++}
++
++int main() {
++    UNITY_BEGIN();
++    RUN_TEST(given_real_volume_response_when_parsed_then_db_mute_level);
++    RUN_TEST(given_missing_or_garbled_db_when_parsed_then_not_ok);
++    RUN_TEST(given_real_status_response_when_parsed_then_source_fields);
++    RUN_TEST(given_status_with_entities_and_no_db_when_parsed_then_decoded_and_flagged);
++    return UNITY_END();
++}
+diff --git a/firmware/test/test_config/test_config.cpp b/firmware/test/test_config/test_config.cpp
+new file mode 100644
+index 0000000..79ad66d
+--- /dev/null
++++ b/firmware/test/test_config/test_config.cpp
+@@ -0,0 +1,118 @@
++#include <unity.h>
++
++#include "config.h"
++
++using knob::Config;
++
++static Config valid() {
++    Config c;
++    c.wifi_ssid = "home";
++    c.wifi_pass = "secret";
++    c.host = "192.168.1.67";
++    return c;
++}
++
++void setUp() {}
++void tearDown() {}
++
++void given_complete_safe_config_when_validated_then_ok() {
++    /*
++    Test Doc:
++    - Why: A complete, safe configuration must be accepted or the device never joins Wi-Fi.
++    - Contract: validate_config returns "" for defaults plus SSID, password and host.
++    - Usage Notes: The NVS adapter validates on boot; invalid config keeps the device offline and says why.
++    - Quality Contribution: Catches over-strict validation.
++    - Worked Example: ssid=home, pass=secret, host=192.168.1.67, defaults -> "".
++    */
++    TEST_ASSERT_EQUAL_STRING("", knob::validate_config(valid()).c_str());
++}
++
++void given_missing_network_or_host_when_validated_then_plain_error() {
++    /*
++    Test Doc:
++    - Why: The screen shows the first config problem in plain words.
++    - Contract: Empty SSID, empty host, or an out-of-range port is rejected with a non-empty message.
++    - Usage Notes: Messages are shown verbatim on screen and serial.
++    - Quality Contribution: Catches a device that tries to connect with nothing configured.
++    - Worked Example: ssid="" -> "Wi-Fi not set up (run just fw-wifi)".
++    */
++    Config c = valid();
++    c.wifi_ssid = "";
++    TEST_ASSERT_TRUE(knob::validate_config(c).size() > 0);
++    c = valid();
++    c.host = "";
++    TEST_ASSERT_TRUE(knob::validate_config(c).size() > 0);
++    c = valid();
++    c.port = 0;
++    TEST_ASSERT_TRUE(knob::validate_config(c).size() > 0);
++    c.port = 70000;
++    TEST_ASSERT_TRUE(knob::validate_config(c).size() > 0);
++}
++
++void given_unsafe_volume_limits_when_validated_then_rejected() {
++    /*
++    Test Doc:
++    - Why: Safety-first (constitution I): limits above -24 dB or oversized steps could make loud jumps.
++    - Contract: max_db and source_safe_db must be <= -24; step_db must be in (0, 3].
++    - Usage Notes: Mirrors scripts/bluos_source.py safe_abs_db_value (-24 cap); max_db and step bounds are firmware tightenings.
++    - Quality Contribution: Catches unsafe config reaching the amp policy.
++    - Worked Example: max_db=-20 -> error; source_safe_db=-10 -> error; step_db=5 -> error; step_db=0 -> error.
++    */
++    Config c = valid();
++    c.max_db = -20;
++    TEST_ASSERT_TRUE(knob::validate_config(c).size() > 0);
++    c = valid();
++    c.source_safe_db = -10;
++    TEST_ASSERT_TRUE(knob::validate_config(c).size() > 0);
++    c = valid();
++    c.step_db = 5;
++    TEST_ASSERT_TRUE(knob::validate_config(c).size() > 0);
++    c.step_db = 0;
++    TEST_ASSERT_TRUE(knob::validate_config(c).size() > 0);
++}
++
++void given_serial_set_commands_when_applied_then_valid_values_stick_and_invalid_are_refused() {
++    /*
++    Test Doc:
++    - Why: `just fw-wifi` and the serial console configure the device one key at a time.
++    - Contract: apply_setting updates the key on success; on an invalid value or unknown key it returns an error and changes nothing.
++    - Usage Notes: Values may contain spaces (SSIDs, passwords); numbers must parse fully.
++    - Quality Contribution: Catches partial writes and lenient number parsing ("-20dB").
++    - Worked Example: set max_db -30 -> ok; set max_db -10 -> refused (still -30); set port 12x -> refused.
++    */
++    Config c = valid();
++    TEST_ASSERT_EQUAL_STRING("", knob::apply_setting(c, "wifi_ssid", "My Home Net").c_str());
++    TEST_ASSERT_EQUAL_STRING("My Home Net", c.wifi_ssid.c_str());
++    TEST_ASSERT_EQUAL_STRING("", knob::apply_setting(c, "max_db", "-30").c_str());
++    TEST_ASSERT_EQUAL_DOUBLE(-30, c.max_db);
++    TEST_ASSERT_TRUE(knob::apply_setting(c, "max_db", "-10").size() > 0);
++    TEST_ASSERT_EQUAL_DOUBLE(-30, c.max_db);
++    TEST_ASSERT_TRUE(knob::apply_setting(c, "max_db", "-20dB").size() > 0);
++    TEST_ASSERT_TRUE(knob::apply_setting(c, "port", "12x").size() > 0);
++    TEST_ASSERT_EQUAL_INT(11000, c.port);
++    TEST_ASSERT_TRUE(knob::apply_setting(c, "colour", "blue").size() > 0);
++}
++
++void given_keys_when_checked_then_only_password_is_secret() {
++    /*
++    Test Doc:
++    - Why: The Wi-Fi password must never be echoed to serial or screen.
++    - Contract: is_secret_key is true for wifi_pass only.
++    - Usage Notes: The console masks secret values in `show`.
++    - Quality Contribution: Catches a password leaking through `show`.
++    - Worked Example: wifi_pass -> true; wifi_ssid -> false.
++    */
++    TEST_ASSERT_TRUE(knob::is_secret_key("wifi_pass"));
++    TEST_ASSERT_FALSE(knob::is_secret_key("wifi_ssid"));
++    TEST_ASSERT_FALSE(knob::is_secret_key("host"));
++}
++
++int main() {
++    UNITY_BEGIN();
++    RUN_TEST(given_complete_safe_config_when_validated_then_ok);
++    RUN_TEST(given_missing_network_or_host_when_validated_then_plain_error);
++    RUN_TEST(given_unsafe_volume_limits_when_validated_then_rejected);
++    RUN_TEST(given_serial_set_commands_when_applied_then_valid_values_stick_and_invalid_are_refused);
++    RUN_TEST(given_keys_when_checked_then_only_password_is_secret);
++    return UNITY_END();
++}
+diff --git a/firmware/test/test_timing/test_timing.cpp b/firmware/test/test_timing/test_timing.cpp
+new file mode 100644
+index 0000000..19cec83
+--- /dev/null
++++ b/firmware/test/test_timing/test_timing.cpp
+@@ -0,0 +1,53 @@
++#include <unity.h>
++
++#include "timing.h"
++
++void setUp() {}
++void tearDown() {}
++
++void given_repeated_failures_when_backing_off_then_doubles_to_cap_and_resets_on_success() {
++    /*
++    Test Doc:
++    - Why: rules.md: the daemon MUST handle amplifier unreachability without retry storms.
++    - Contract: on_failure returns min, 2*min, 4*min ... capped at max; on_success resets to min.
++    - Usage Notes: Use the returned value as the wait before the next poll.
++    - Quality Contribution: Catches tight retry loops when the amp is off.
++    - Worked Example: min 1000, max 8000 -> 1000, 2000, 4000, 8000, 8000; success -> 1000.
++    */
++    knob::Backoff b(1000, 8000);
++    TEST_ASSERT_EQUAL_UINT32(1000, b.on_failure());
++    TEST_ASSERT_EQUAL_UINT32(2000, b.on_failure());
++    TEST_ASSERT_EQUAL_UINT32(4000, b.on_failure());
++    TEST_ASSERT_EQUAL_UINT32(8000, b.on_failure());
++    TEST_ASSERT_EQUAL_UINT32(8000, b.on_failure());
++    b.on_success();
++    TEST_ASSERT_EQUAL_UINT32(1000, b.on_failure());
++}
++
++void given_inactivity_when_time_passes_then_dims_and_wakes_on_touch() {
++    /*
++    Test Doc:
++    - Why: AC-09: the screen dims after inactivity and wakes on the next knob event or status change.
++    - Contract: dimmed(now) is true once now - last touch >= dim_after; touch() wakes it; millis() wrap is handled.
++    - Usage Notes: Call touch() on knob events and on amp volume/source changes.
++    - Quality Contribution: Catches a screen that never dims or never wakes, and the 49-day millis() wrap.
++    - Worked Example: dim_after 30000; touch at 0 -> not dimmed at 29999, dimmed at 30000; touch at 31000 -> awake.
++    */
++    knob::Dimmer d(30000);
++    d.touch(0);
++    TEST_ASSERT_FALSE(d.dimmed(29999));
++    TEST_ASSERT_TRUE(d.dimmed(30000));
++    d.touch(31000);
++    TEST_ASSERT_FALSE(d.dimmed(31000));
++    knob::Dimmer w(30000);
++    w.touch(0xFFFFF000u);
++    TEST_ASSERT_FALSE(w.dimmed(0x00000100u));
++    TEST_ASSERT_TRUE(w.dimmed(0xFFFFF000u + 30000u));
++}
++
++int main() {
++    UNITY_BEGIN();
++    RUN_TEST(given_repeated_failures_when_backing_off_then_doubles_to_cap_and_resets_on_success);
++    RUN_TEST(given_inactivity_when_time_passes_then_dims_and_wakes_on_touch);
++    return UNITY_END();
++}
+diff --git a/justfile b/justfile
+index efc6909..71ce2a8 100644
+--- a/justfile
++++ b/justfile
+@@ -122,3 +122,7 @@ fw-flash:
+ # Open the serial monitor (Ctrl-C to exit).
+ fw-monitor:
+     cd firmware && {{pio}} device monitor -b 115200 {{ if fw_port != "" { "-p " + fw_port } else { "" } }}
++
++# Enter Wi-Fi + amp settings on the device (password prompt is hidden). Close any serial monitor first.
++fw-wifi:
++    "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_wifi.py {{ if fw_port != "" { "--port " + fw_port } else { "" } }}
+diff --git a/scripts/fw_wifi.py b/scripts/fw_wifi.py
+new file mode 100644
+index 0000000..7acd890
+--- /dev/null
++++ b/scripts/fw_wifi.py
+@@ -0,0 +1,135 @@
++#!/usr/bin/env python3
++"""Provision Wi-Fi and amp settings onto the BluOS Knob ESP32 over USB serial.
++
++The password is read with getpass (not echoed), sent once over the local USB
++serial link, and never printed: the firmware stores it in NVS and only ever
++reports it masked.
++"""
++
++from __future__ import annotations
++
++import argparse
++import getpass
++import glob
++import json
++import sys
++import time
++
++import serial  # pyserial (ships with PlatformIO)
++
++BAUD = 115200
++
++
++def pick_port(explicit: str | None) -> str:
++    if explicit:
++        return explicit
++    ports = sorted(glob.glob("/dev/cu.usbserial-*")) + sorted(glob.glob("/dev/ttyUSB*"))
++    if not ports:
++        sys.exit("No ESP32 serial port found. Plug the device in or pass --port.")
++    if len(ports) > 1:
++        sys.exit(f"Several serial ports found ({', '.join(ports)}); pass --port.")
++    return ports[0]
++
++
++def read_json_lines(link: serial.Serial, seconds: float):
++    end = time.time() + seconds
++    while time.time() < end:
++        raw = link.readline()
++        if not raw:
++            continue
++        text = raw.decode(errors="replace").strip()
++        if text.startswith("{"):
++            try:
++                yield json.loads(text)
++            except json.JSONDecodeError:
++                continue
++
++
++def wait_for(link: serial.Serial, predicate, seconds: float) -> dict | None:
++    for message in read_json_lines(link, seconds):
++        if predicate(message):
++            return message
++    return None
++
++
++def send(link: serial.Serial, line: str) -> None:
++    link.write((line + "\n").encode())
++    link.flush()
++
++
++def set_value(link: serial.Serial, key: str, value: str) -> None:
++    send(link, f"set {key} {value}")
++    reply = wait_for(link, lambda m: m.get("set") == key, 5)
++    if reply is None:
++        sys.exit(f"No reply from the device when setting {key}.")
++    if not reply.get("ok"):
++        sys.exit(f"Device refused {key}: {reply.get('error')}")
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--port", help="serial port (default: auto-detect)")
++    parser.add_argument("--host", help="BluOS amp IP (default: prompt)")
++    args = parser.parse_args()
++
++    port = pick_port(args.port)
++    try:
++        link = serial.Serial(port, BAUD, timeout=0.3)
++    except serial.SerialException as exc:
++        sys.exit(f"Can't open {port} ({exc}). Close any serial monitor/logger and retry.")
++    link.dtr = False
++    link.rts = False
++
++    print(f"Connected to {port}; waiting for the device to boot...")
++    if wait_for(link, lambda m: "boot" in m, 8) is None:
++        send(link, "show")
++    send(link, "show")
++    current = wait_for(link, lambda m: "wifi_ssid" in m, 5) or {}
++
++    stored_ssid = current.get("wifi_ssid", "")
++    ssid = input(f"Wi-Fi name [{stored_ssid}]: ").strip() or stored_ssid
++    if not ssid:
++        sys.exit("A Wi-Fi name is required.")
++    password = getpass.getpass("Wi-Fi password (hidden; Enter keeps the stored one): ")
++    default_host = args.host or current.get("host") or "192.168.1.67"
++    host = input(f"Amp IP address [{default_host}]: ").strip() or default_host
++
++    set_value(link, "wifi_ssid", ssid)
++    if password:
++        set_value(link, "wifi_pass", password)
++    set_value(link, "host", host)
++    del password
++
++    print("Saved. Restarting the device and joining Wi-Fi...")
++    send(link, "reboot")
++    connected = wait_for(
++        link, lambda m: m.get("wifi") == "connected" or m.get("config") == "invalid", 30
++    )
++    if connected is None:
++        print("Didn't see a Wi-Fi connection within 30 s. Check the name/password and run again.")
++        return 1
++    if connected.get("config") == "invalid":
++        print(f"Device says the settings are incomplete: {connected.get('error')}")
++        return 1
++    print(f"On Wi-Fi as {connected.get('ip')} (signal {connected.get('rssi')} dBm).")
++    status = None
++    for _ in range(5):  # the first amp poll can take a few seconds after Wi-Fi joins
++        send(link, "status")
++        status = wait_for(link, lambda m: "board" in m and "amp" in m, 2.5)
++        if status and status.get("amp") == "ok":
++            break
++    if status and status.get("amp") == "ok":
++        print(f"Amp {host} reachable: {status.get('db')} dB, source '{status.get('source')}'.")
++    else:
++        fault = status.get("fault") if status else "no status from the device"
++        print(f"Couldn't confirm the amp at {host} yet: {fault}")
++    return 0
++
++
++if __name__ == "__main__":
++    try:
++        raise SystemExit(main())
++    except serial.SerialException as exc:
++        sys.exit(
++            f"Lost the USB serial link ({exc}). Is something else using the port? Re-run fw-wifi."
++        )
