@@ -85,52 +85,63 @@ void ui_render(const UiState& s) {
     d.startWrite();
     d.fillScreen(TFT_BLACK);
 
-    // Status bar: title, Wi-Fi and knob indicators.
-    d.setTextDatum(textdatum_t::top_left);
+    // Status bar: Wi-Fi left, knob right, 16 px proportional font.
     d.setTextSize(1);
-    d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    d.drawString("BluOS Knob", 2, 2);
-    d.drawString("wifi", w - 82, 2);
-    d.fillCircle(w - 52, 5, 4, wifi_colour(s.wifi));
-    d.drawString("knob", w - 40, 2);
-    d.fillCircle(w - 8, 5, 4, knob_colour(s.link));
+    d.setFont(&fonts::Font2);
+    d.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    d.setTextDatum(textdatum_t::middle_left);
+    d.fillCircle(8, 9, 5, wifi_colour(s.wifi));
+    d.drawString("Wi-Fi", 18, 9);
+    d.setTextDatum(textdatum_t::middle_right);
+    d.fillCircle(w - 8, 9, 5, knob_colour(s.link));
+    d.drawString("Knob", w - 18, 9);
 
     // Centre: big dB (or the knob action briefly, or MUTED).
+    const int cy = h / 2 - (small ? 0 : 2);
     d.setTextDatum(textdatum_t::middle_center);
-    const int cy = h / 2 - (small ? 2 : 4);
     if (s.show_action && s.last_action != knob::Action::NoOp && s.last_action != knob::Action::Unknown) {
+        d.setFont(&fonts::Font4);
+        d.setTextSize(small ? 1 : 2);
         d.setTextColor(TFT_CYAN, TFT_BLACK);
-        d.setTextSize(small ? 2 : 4);
         d.drawString(action_label(s.last_action), w / 2, cy);
     } else if (s.amp.have_data && s.amp.volume.mute) {
+        d.setFont(&fonts::Font4);
+        d.setTextSize(small ? 1 : 2);
         d.setTextColor(TFT_ORANGE, TFT_BLACK);
-        d.setTextSize(small ? 3 : 5);
         d.drawString("MUTED", w / 2, cy);
     } else {
-        d.setTextColor(s.amp.reachable ? TFT_WHITE : TFT_DARKGREY, TFT_BLACK);
-        d.setTextSize(small ? 3 : 6);
         const std::string db = db_text(s.amp);
-        d.drawString(db.c_str(), w / 2 - (small ? 8 : 16), cy);
-        d.setTextSize(small ? 1 : 2);
+        d.setFont(small ? &fonts::Font4 : &fonts::Font7);
+        d.setTextSize(1);
+        d.setTextColor(s.amp.reachable ? TFT_WHITE : TFT_DARKGREY, TFT_BLACK);
+        const int db_w = d.textWidth(db.c_str());
+        d.setFont(small ? &fonts::Font2 : &fonts::Font4);
+        const int unit_w = d.textWidth("dB");
+        const int left = (w - db_w - 4 - unit_w) / 2;
+        d.setFont(small ? &fonts::Font4 : &fonts::Font7);
+        d.setTextDatum(textdatum_t::middle_left);
+        d.drawString(db.c_str(), left, cy);
+        d.setFont(small ? &fonts::Font2 : &fonts::Font4);
         d.setTextDatum(textdatum_t::bottom_left);
-        d.drawString("dB", w / 2 + (small ? 22 : 54), cy + (small ? 10 : 20));
+        d.drawString("dB", left + db_w + 4, cy + (small ? 9 : 22));
     }
 
     // Source line.
+    d.setFont(small ? &fonts::Font2 : &fonts::Font4);
+    d.setTextSize(1);
     d.setTextDatum(textdatum_t::middle_center);
-    d.setTextSize(small ? 1 : 2);
     d.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    d.drawString(source_text(s.amp).substr(0, small ? 26 : 19).c_str(), w / 2, h - (small ? 20 : 34));
+    d.drawString(source_text(s.amp).substr(0, small ? 18 : 16).c_str(), w / 2, h - (small ? 24 : 36));
 
     // Fault / status line.
-    d.setTextSize(1);
+    d.setFont(&fonts::Font2);
     d.setTextDatum(textdatum_t::bottom_center);
     if (!s.fault.empty()) {
         d.setTextColor(TFT_RED, TFT_BLACK);
-        d.drawString(s.fault.substr(0, small ? 26 : 39).c_str(), w / 2, h - 2);
+        d.drawString(s.fault.substr(0, small ? 22 : 34).c_str(), w / 2, h - 1);
     } else {
         d.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        d.drawString("read-only", w / 2, h - 2);
+        d.drawString("read-only", w / 2, h - 1);
     }
     d.endWrite();
 }

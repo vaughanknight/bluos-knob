@@ -28,6 +28,20 @@ uint32_t g_action_at = 0;
 std::string g_last_amp_key;
 String g_line;
 bool g_wifi_reported = false;
+volatile int g_wifi_reason = 0;  // last STA disconnect reason (esp_wifi wifi_err_reason_t)
+
+const char* wifi_reason_text(int reason) {
+    switch (reason) {
+        case 201: return "Wi-Fi network not found (2.4 GHz only)";
+        case 2:
+        case 15:
+        case 202:
+        case 204: return "Wi-Fi password rejected?";
+        case 203: return "Wi-Fi: too many devices on AP";
+        case 200: return "Wi-Fi: beacon timeout";
+        default: return nullptr;
+    }
+}
 
 const char* board_name() {
     switch (M5.getBoard()) {
@@ -67,6 +81,12 @@ void wifi_begin() {
         Serial.printf("{\"config\":\"invalid\",\"error\":\"%s\"}\n", g_config_error.c_str());
         return;
     }
+    WiFi.onEvent(
+        [](arduino_event_id_t, arduino_event_info_t info) {
+            g_wifi_reason = info.wifi_sta_disconnected.reason;
+            Serial.printf("{\"wifi\":\"disconnected\",\"reason\":%d}\n", g_wifi_reason);
+        },
+        ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(true);  // modem sleep is required for Wi-Fi/BLE coexistence
     WiFi.setAutoReconnect(true);
@@ -143,7 +163,10 @@ void poll_serial() {
 
 std::string current_fault(const AmpState& amp) {
     if (!g_config_error.empty()) return g_config_error;
-    if (WiFi.status() != WL_CONNECTED) return std::string("Wi-Fi: connecting to ") + g_config.wifi_ssid;
+    if (WiFi.status() != WL_CONNECTED) {
+        const char* why = wifi_reason_text(g_wifi_reason);
+        return why ? std::string(why) : std::string("Wi-Fi: connecting to ") + g_config.wifi_ssid;
+    }
     if (!amp.reachable && amp.failures > 0) return amp.error;
     if (g_knob.link() != KnobLink::Connected) return "knob not connected";
     return "";
@@ -178,6 +201,7 @@ void loop() {
     const uint32_t now = millis();
     if (WiFi.status() == WL_CONNECTED && !g_wifi_reported) {
         g_wifi_reported = true;
+        g_wifi_reason = 0;
         Serial.printf("{\"wifi\":\"connected\",\"ip\":\"%s\",\"rssi\":%d}\n", WiFi.localIP().toString().c_str(),
                       WiFi.RSSI());
     } else if (WiFi.status() != WL_CONNECTED && g_wifi_reported) {

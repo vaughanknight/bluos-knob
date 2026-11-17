@@ -123,4 +123,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except serial.SerialException as exc:
+        sys.exit(
+            f"Lost the USB serial link ({exc}). Is something else using the port? Re-run fw-wifi."
+        )

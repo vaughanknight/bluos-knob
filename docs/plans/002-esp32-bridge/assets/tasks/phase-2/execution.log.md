@@ -21,3 +21,9 @@
 
 ## tk-2203 `just fw-wifi` — implemented, Vaughan to run
 - `scripts/fw_wifi.py` (pyserial from the PlatformIO venv): auto-detects the port, `getpass` password, `set` each key, waits for `{"wifi":"connected"}` then reports amp reachability. ruff clean.
+
+## Vaughan feedback + first fw-wifi run (17:45–17:50)
+- "the font on the device is too small for status bits": switched to M5GFX proportional fonts (Font2 16 px status/fault, Font7 48 px 7-segment dB, Font4 26 px source); dropped the redundant title.
+- First `just fw-wifi` crashed with `SerialException … multiple access on port`: **my concurrent `pio … -t upload` collided with it** (agent error). Settings had saved (`show`: ssid set, wifi_pass `****`, host 192.168.1.67, valid true). `fw_wifi.py` now exits with a plain message on SerialException.
+- Wi-Fi never joined: added STA disconnect-reason logging + plain faults. Device logs reason **201 (NO_AP_FOUND)** repeatedly. Mac is on the same SSID at **5 GHz ch 161**; the ESP32 is 2.4 GHz-only. Asked Vaughan for a 2.4 GHz network. **Noteworthy**: a 2.4 GHz requirement goes in the runbook/README.
+- Lesson: never flash while a human is running a serial tool; the logger/flash must check the port first.
