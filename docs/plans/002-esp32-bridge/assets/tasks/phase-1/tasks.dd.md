@@ -36,9 +36,9 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 | id | title | domain | phase | state | note | receipt | done | success | notes | satisfies | satisfies_toward |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | tk-2101 | Spike: throwaway NimBLE-Arduino sketch in /tmp/bluos-ble-spike bonds to ANTICATER_MINI and prints raw Report notifications, while Wi-Fi is connected with periodic HTTP GETs and M5Unified redraws the screen | — | — | [ ] unchecked | — | — | [ ] 0/3 [tk-2101](#tk-2101) | Go/no-go verdict, payload form, bonding quirks and min free heap under BLE+Wi-Fi+display recorded in the execution log; spike code discarded | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2102 | Scaffold firmware/ PlatformIO project (espressif32 Arduino + M5Unified + NimBLE-Arduino; envs m5stick and native) and justfile fw-build/fw-test/fw-flash/fw-monitor via uvx | — | — | [ ] unchecked | — | — | [ ] 0/3 [tk-2102](#tk-2102) | `just fw-build` succeeds; `just fw-test` runs (empty) native suite; .pio ignored | — | [ac-0201](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2103 | RED: native tests for knob_core decoder with Test Doc blocks: real capture vectors (03e900 … 030000), report-id-less forms, unknown usage | — | — | [ ] unchecked | — | — | [ ] 0/1 [tk-2103](#tk-2103) | Tests compile and fail for the missing decoder | — | [ac-0201](../../../plan.dd.md#acceptance-criteria), [ac-0202](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2104 | GREEN: implement knob_core decoder (16-bit LE usage scan + release rule, same table as normalizer.py) | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2104](#tk-2104) | All decoder tests pass | — | [ac-0201](../../../plan.dd.md#acceptance-criteria), [ac-0202](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2102 | Scaffold firmware/ PlatformIO project (espressif32 Arduino + M5Unified + NimBLE-Arduino; envs m5stick and native) and justfile fw-build/fw-test/fw-flash/fw-monitor via uvx | — | — | [x] checked | Unblocked via brew install platformio (Vaughan approved). | just fw-build SUCCESS (RAM 12.9%, Flash 61.0%); just fw-test 5/5; firmware/.gitignore ignores .pio | [x] 3/3 [tk-2102](#tk-2102) | `just fw-build` succeeds; `just fw-test` runs (empty) native suite; .pio ignored | — | [ac-0201](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2103 | RED: native tests for knob_core decoder with Test Doc blocks: real capture vectors (03e900 … 030000), report-id-less forms, unknown usage | — | — | [x] checked | — | just fw-test (stub decoder): 4 failed / 1 passed on assertions (RED) | [x] 1/1 [tk-2103](#tk-2103) | Tests compile and fail for the missing decoder | — | [ac-0201](../../../plan.dd.md#acceptance-criteria), [ac-0202](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2104 | GREEN: implement knob_core decoder (16-bit LE usage scan + release rule, same table as normalizer.py) | — | — | [x] checked | — | just fw-test: 5/5 passed; table = normalizer.py CONSUMER_USAGE_TO_ACTION (0xE9,0xEA,0xE2,0x6F,0x70) + same release rule | [x] 2/2 [tk-2104](#tk-2104) | All decoder tests pass | — | [ac-0201](../../../plan.dd.md#acceptance-criteria), [ac-0202](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2105 | BLE knob adapter: scan for ANTICATER name, bond, subscribe to HID reports, enqueue timestamped raw payloads to a bounded FreeRTOS queue (drop-newest on overflow, counted); reconnect with backoff; serial `bonds clear` | — | — | [ ] unchecked | — | — | [ ] 0/3 [tk-2105](#tk-2105) | Adapter compiles; callback does no work beyond enqueue; overflow is counted, never blocks | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2106 | Screen v1 + serial log: board name at boot, knob link state, last action + counter; one JSON-ish action line per event on serial | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2106](#tk-2106) | Renders on the detected M5 model | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2107 | Hardware smoke (Vaughan's go-ahead: unpairs knob from Mac): flash, bond, every gesture shows on screen + serial; knob power-cycle reconnects | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2107](#tk-2107) | Recorded in execution log with serial excerpts | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
@@ -59,22 +59,22 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-1020 | just fw-build exit 0 | [ ] unchecked | not-applicable |
-| dw-1021 | just fw-test exit 0 | [ ] unchecked | not-applicable |
-| dw-1022 | git status shows no .pio artefacts | [ ] unchecked | not-applicable |
+| dw-1020 | just fw-build exit 0 | [x] checked | not-applicable |
+| dw-1021 | just fw-test exit 0 | [x] checked | not-applicable |
+| dw-1022 | git status shows no .pio artefacts | [x] checked | not-applicable |
 
 ### tk-2103
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-1030 | just fw-test fails on decoder assertions before implementation | [ ] unchecked | not-applicable |
+| dw-1030 | just fw-test fails on decoder assertions before implementation | [x] checked | not-applicable |
 
 ### tk-2104
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-1040 | just fw-test green | [ ] unchecked | not-applicable |
-| dw-1041 | Table matches CONSUMER_USAGE_TO_ACTION in normalizer.py | [ ] unchecked | not-applicable |
+| dw-1040 | just fw-test green | [x] checked | not-applicable |
+| dw-1041 | Table matches CONSUMER_USAGE_TO_ACTION in normalizer.py | [x] checked | not-applicable |
 
 ### tk-2105
 

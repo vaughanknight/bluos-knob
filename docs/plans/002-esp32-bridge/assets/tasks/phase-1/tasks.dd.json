@@ -32,34 +32,38 @@
         {
           "id": "tk-2102",
           "title": "Scaffold firmware/ PlatformIO project (espressif32 Arduino + M5Unified + NimBLE-Arduino; envs m5stick and native) and justfile fw-build/fw-test/fw-flash/fw-monitor via uvx",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2102",
           "success": "`just fw-build` succeeds; `just fw-test` runs (empty) native suite; .pio ignored",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0201"
-          ]
+          ],
+          "note": "Unblocked via brew install platformio (Vaughan approved).",
+          "receipt": "just fw-build SUCCESS (RAM 12.9%, Flash 61.0%); just fw-test 5/5; firmware/.gitignore ignores .pio"
         },
         {
           "id": "tk-2103",
           "title": "RED: native tests for knob_core decoder with Test Doc blocks: real capture vectors (03e900 … 030000), report-id-less forms, unknown usage",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2103",
           "success": "Tests compile and fail for the missing decoder",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0201",
             "../../../plan.dd.json#acceptance_criteria/ac-0202"
-          ]
+          ],
+          "receipt": "just fw-test (stub decoder): 4 failed / 1 passed on assertions (RED)"
         },
         {
           "id": "tk-2104",
           "title": "GREEN: implement knob_core decoder (16-bit LE usage scan + release rule, same table as normalizer.py)",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2104",
           "success": "All decoder tests pass",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0201",
             "../../../plan.dd.json#acceptance_criteria/ac-0202"
-          ]
+          ],
+          "receipt": "just fw-test: 5/5 passed; table = normalizer.py CONSUMER_USAGE_TO_ACTION (0xE9,0xEA,0xE2,0x6F,0x70) + same release rule"
         },
         {
           "id": "tk-2105",
@@ -120,19 +124,19 @@
           {
             "id": "dw-1020",
             "assertion": "just fw-build exit 0",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-1021",
             "assertion": "just fw-test exit 0",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-1022",
             "assertion": "git status shows no .pio artefacts",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -140,7 +144,7 @@
           {
             "id": "dw-1030",
             "assertion": "just fw-test fails on decoder assertions before implementation",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -148,13 +152,13 @@
           {
             "id": "dw-1040",
             "assertion": "just fw-test green",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-1041",
             "assertion": "Table matches CONSUMER_USAGE_TO_ACTION in normalizer.py",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],

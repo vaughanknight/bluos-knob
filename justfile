@@ -3,6 +3,8 @@ bluos_host := env_var_or_default("BLUOS_HOST", "")
 bluos_port := env_var_or_default("BLUOS_PORT", "11000")
 daemon_pid := "/tmp/bluos-knob-daemon.pid"
 daemon_log := "/tmp/bluos-knob-daemon.log"
+pio := "pio"
+fw_port := env_var_or_default("FW_PORT", "")
 
 install:
     python3 -m pip install -e ".[dev]"
@@ -102,3 +104,21 @@ lint:
 smoke:
     python3 -m bluos_knob.cli.main --help >/dev/null
     python3 -m bluos_knob.cli.main replay --fixture tests/fixtures/anticater/sample_reports.jsonl >/dev/null
+
+# --- ESP32 firmware (firmware/, plan 002) ---
+
+# Build the M5StickC firmware.
+fw-build:
+    cd firmware && {{pio}} run -e m5stick
+
+# Run the host-native core tests (no hardware).
+fw-test:
+    cd firmware && {{pio}} test -e native
+
+# Flash the firmware over USB (FW_PORT=/dev/cu.usbserial-... to pin the port).
+fw-flash:
+    cd firmware && {{pio}} run -e m5stick -t upload {{ if fw_port != "" { "--upload-port " + fw_port } else { "" } }}
+
+# Open the serial monitor (Ctrl-C to exit).
+fw-monitor:
+    cd firmware && {{pio}} device monitor -b 115200 {{ if fw_port != "" { "-p " + fw_port } else { "" } }}
