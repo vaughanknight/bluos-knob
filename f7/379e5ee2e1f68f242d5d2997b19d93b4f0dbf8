@@ -1,0 +1,56 @@
+firmware/lib/knob_core/src/decoder.cpp
+  s_dd51bf282723cd::t_e4c656ba39eecf 1-3,5,10,60-61
+  s_dd51bf282723cd::t_dd201fa8612480 4,6-9,11-59
+firmware/lib/knob_core/src/decoder.h
+  s_dd51bf282723cd::t_e4c656ba39eecf 1-28
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/execution.log.md
+  s_dd51bf282723cd::t_621f10d1a99d3a 1-17
+  s_dd51bf282723cd::t_6f400704d2d036 18-28
+  s_dd51bf282723cd::t_21952c587fee2e 29-32
+firmware/src/display_ui.cpp
+  s_dd51bf282723cd::t_47eee3824117c1 1-78
+firmware/src/display_ui.h
+  s_dd51bf282723cd::t_47eee3824117c1 1-18
+firmware/src/main.cpp
+  s_dd51bf282723cd::t_83f1c0b8b82156 1,3,80,91-93,103
+  s_dd51bf282723cd::t_47eee3824117c1 2,4-79,81-90,94-102
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/tasks.dd.json
+  s_dd51bf282723cd::t_0bd881e175a0ed 35
+  s_dd51bf282723cd::t_6f400704d2d036 53-54,59,65
+  s_dd51bf282723cd::t_621f10d1a99d3a 40-41
+  s_dd51bf282723cd::t_8d9b0e4563a659 42,47,66,127,133,139,147,155,161
+justfile
+  s_dd51bf282723cd::t_5b998d0fa17b82 6
+  s_dd51bf282723cd::t_83f1c0b8b82156 7,107-124
+firmware/src/ble_knob.cpp
+  s_dd51bf282723cd::t_47eee3824117c1 1-165
+firmware/src/ble_knob.h
+  s_dd51bf282723cd::t_47eee3824117c1 1-26
+firmware/.gitignore
+  s_dd51bf282723cd::t_83f1c0b8b82156 1
+firmware/src/knob_event.h
+  s_dd51bf282723cd::t_47eee3824117c1 1-11
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/tasks.dd.md
+  s_dd51bf282723cd::t_6f400704d2d036 40-41,62-64,70,76-77
+  s_dd51bf282723cd::t_0bd881e175a0ed 39
+firmware/test/test_decoder/test_decoder.cpp
+  s_dd51bf282723cd::t_e4c656ba39eecf 1-104
+firmware/platformio.ini
+  s_dd51bf282723cd::t_83f1c0b8b82156 1-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "f7379e5ee2e1f68f242d5d2997b19d93b4f0dbf8",
+  "prompts": {},
+  "sessions": {
+    "s_dd51bf282723cd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "58b2a6ea-9d92-4cfd-b554-854a81529448",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "Vaughan Knight <252951+vaughanknight@users.noreply.github.com>"
+    }
+  }
+}
