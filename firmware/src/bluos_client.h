@@ -11,7 +11,7 @@ struct AmpState {
     knob::VolumeInfo volume;
     knob::StatusInfo status;
     std::string error;       // last failure, plain words
-    uint32_t updated_ms = 0;
+    uint32_t updated_ms = 0;  // millis() of the last fully successful poll; check age before acting
     uint32_t failures = 0;
 };
 

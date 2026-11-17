@@ -53,13 +53,22 @@ void poll_task(void*) {
                     error = "amp sent an unreadable volume";
                 }
             }
-            if (ok && http_get("/Status", &body, &error)) status = knob::parse_status(body);
+            if (ok) {
+                ok = http_get("/Status", &body, &error);
+                if (ok) {
+                    status = knob::parse_status(body);
+                    if (!status.ok) {
+                        ok = false;
+                        error = "amp sent an unreadable status";
+                    }
+                }
+            }
             xSemaphoreTake(g_lock, portMAX_DELAY);
             if (ok) {
                 g_state.reachable = true;
                 g_state.have_data = true;
                 g_state.volume = volume;
-                if (status.ok) g_state.status = status;
+                g_state.status = status;
                 g_state.error.clear();
                 g_state.updated_ms = millis();
                 g_state.failures = 0;
@@ -71,8 +80,18 @@ void poll_task(void*) {
                 wait = backoff.on_failure();
             }
             xSemaphoreGive(g_lock);
-            if (!ok) Serial.printf("{\"amp\":\"unreachable\",\"error\":\"%s\",\"retry_ms\":%lu}\n", error.c_str(),
-                                   static_cast<unsigned long>(wait));
+            if (!ok) {
+                std::string safe;
+                for (const char c : error) safe += (c == '"' || c == '\\' || static_cast<unsigned char>(c) < 0x20) ? '?' : c;
+                Serial.printf("{\"amp\":\"unreachable\",\"error\":\"%s\",\"retry_ms\":%lu}\n", safe.c_str(),
+                              static_cast<unsigned long>(wait));
+            }
+        }
+        else {
+            xSemaphoreTake(g_lock, portMAX_DELAY);
+            g_state.reachable = false;  // never report stale data as live while Wi-Fi is down
+            g_state.error = "Wi-Fi down";
+            xSemaphoreGive(g_lock);
         }
         vTaskDelay(pdMS_TO_TICKS(wait));
     }

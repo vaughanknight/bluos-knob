@@ -36,3 +36,8 @@
 - **Unreachable-amp fault** (read-only): `set host 192.168.1.250` + reboot → screen/serial fault "can't reach amp 192.168.1.250", backoff retry 2000→4000→8000→16000 ms; knob auto-reconnected after reboot (bond). Restored `host 192.168.1.67` + reboot → amp ok, fault cleared. **Config persisted across both reboots** (tk-2202).
 - Heap with BLE + Wi-Fi + HTTP: free ≈88–92 KB, min_free 81300 B.
 - Vaughan 08:06Z "Both work": BluOS-app volume change follows on screen within ~2 s and wakes it; dim after 30 s, wakes on knob turn. tk-2206/2207 closed; ac-0204/0205/0209 checked. dw-2073 (5 knob power-cycles / 3 AP drops) marked na: no knob switch, AP drop deferred to Phase 3 soak.
+
+## Phase 2 review fixes: verified
+- Fixed the 4 review findings (stale amp state, set-value trimming, single onEvent registration, JSON escaping). Device check: 67 serial lines all valid JSON; one `{"wifi":"disconnected"}` per event after two `wifi scan`s; amp ok −38 dB; knob reconnected. `pio test -e native` 16/16.
+
+## Phase 2 complete
