@@ -37,9 +37,10 @@ dial, tap, and hold controls.
 But it needed a bridge to talk to the NAD M33, so _this_ project brings it all
 together.
 
-I'll likely build an ESP32-deployable version next so I don't need my Mac
-running the daemon. The idea is that people could buy a cheap little device,
-power it from USB, and let it sit quietly near their amp doing the bridge work.
+There's now an ESP32 version too, so the Mac doesn't need to run the daemon:
+a cheap M5StickC Plus, powered from USB, sits quietly near the amp doing the
+bridge work and shows the volume on its little screen (see
+[Run it on an ESP32](#run-it-on-an-esp32)).
 
 Theoretically this should work with any BluOS device, but bear in mind I've only
 tested it with the NAD M33. Enjoy!
@@ -86,6 +87,7 @@ Prefer manual steps? The harness commands below are the long way around.
 | Guarded live commands | Supports bounded dB steps, explicit mute on/off, and guarded source switching. |
 | Safety harness | Named `just` commands, tests, lint, boundary checks, smoke checks, and live readbacks. |
 | Daemon loop | Runs the knob-to-BluOS loop so the VK-01 controls the NAD directly. |
+| ESP32 bridge | The same job on an M5StickC Plus, with a status screen. See [Run it on an ESP32](#run-it-on-an-esp32). |
 
 ## Current gesture plan
 
@@ -206,6 +208,21 @@ just doctor-hid
 ```
 
 If `just` is unavailable, run the commands from `justfile` directly.
+
+## Run it on an ESP32
+
+No Mac needed: an M5StickC Plus (ESP32) talks to the knob over BLE and to the
+amp over Wi-Fi (**2.4 GHz only**), and shows the volume, source and any fault on
+its screen. It starts in DRY-RUN every time; you switch it live deliberately.
+
+```bash
+brew install platformio
+just fw-test && just fw-flash   # flash over USB
+just fw-wifi                    # Wi-Fi name, hidden password, amp IP
+```
+
+Pairing, going live, the serial console, the safety rules and the cut-over and
+rollback from the Mac daemon are in [docs/how/esp32-bridge.md](docs/how/esp32-bridge.md).
 
 ## Roadmap
 
