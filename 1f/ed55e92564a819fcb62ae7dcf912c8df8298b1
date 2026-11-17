@@ -1,0 +1,37 @@
+firmware/src/ble_knob.cpp
+  s_dd51bf282723cd::t_eabbfdbfb9bf93 228-233
+  s_dd51bf282723cd::t_82a958a44dd597 32-36,72-74,87,108-111,141-142,200-202,243-250
+docs/plans/002-esp32-bridge/the-flow.json
+  s_dd51bf282723cd::t_dd3c4fbeb77c02 6,353-427,472,478-486,498-499,623,640-650,656,670-680
+docs/plans/002-esp32-bridge/the-flow.md
+  s_dd51bf282723cd::t_dd3c4fbeb77c02 4,6,12,24,44,57-61
+  s_dd51bf282723cd::t_53b041ee488418 62
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/reviews/_computed.diff
+  s_dd51bf282723cd::t_ac428411c9d43b 1-801
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/execution.log.md
+  s_dd51bf282723cd::t_15e20a22404f44 60-64
+  s_dd51bf282723cd::t_29a3d3cad85380 67
+  s_dd51bf282723cd::t_f469c06fa52837 65-66,68-69
+docs/plans/002-esp32-bridge/assets/tasks/phase-1/reviews/review.phase-1.md
+  s_dd51bf282723cd::t_f9ef8d795b79d2 1-26
+docs/plans/002-esp32-bridge/plan.dd.json
+  s_dd51bf282723cd::t_e8a09542be1af6 52-53,58-59,64-65
+docs/plans/002-esp32-bridge/plan.dd.md
+  s_dd51bf282723cd::t_4a9fe0a0efc137 58-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1fed55e92564a819fcb62ae7dcf912c8df8298b1",
+  "prompts": {},
+  "sessions": {
+    "s_dd51bf282723cd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "58b2a6ea-9d92-4cfd-b554-854a81529448",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "Vaughan Knight <252951+vaughanknight@users.noreply.github.com>"
+    }
+  }
+}
