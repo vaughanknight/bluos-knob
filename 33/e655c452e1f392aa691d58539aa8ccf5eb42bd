@@ -1,0 +1,41 @@
+firmware/test/test_amp_policy/test_amp_policy.cpp
+  s_dd51bf282723cd::t_356d479aeb6c92 137,140,148,150-152,384-444,461-462
+docs/plans/003-knob-lag/the-flow.md
+  s_dd51bf282723cd::t_27d12a65a4cf99 4,6,10-12,19-20,31,36,40-50
+docs/plans/003-knob-lag/the-flow.json
+  s_dd51bf282723cd::t_27d12a65a4cf99 6,34-142,150,159-169,175,186-188,195,212-213,271,287-297,303,319-329
+firmware/src/main.cpp
+  s_dd51bf282723cd::t_2e80faac5fe48b 306-308
+firmware/lib/knob_core/src/amp_policy.cpp
+  s_dd51bf282723cd::t_3fdc4dfd64e6a2 136-157,174,178-182
+  s_dd51bf282723cd::t_356d479aeb6c92 158
+firmware/src/amp_control.cpp
+  s_dd51bf282723cd::t_2e80faac5fe48b 19
+  s_dd51bf282723cd::t_32a3825d4eafe6 11,27-28,31-35,38-42,46-55,57-58,68,77-87,92-104,106-115,162-163
+firmware/src/amp_control.h
+  s_dd51bf282723cd::t_32a3825d4eafe6 26-27
+firmware/lib/knob_core/src/amp_policy.h
+  s_dd51bf282723cd::t_356d479aeb6c92 13,50-53
+docs/plans/003-knob-lag/assets/tasks/phase-1/execution.log.md
+  s_dd51bf282723cd::t_cf24f05f5d351a 1-17
+docs/plans/003-knob-lag/assets/tasks/phase-1/tasks.dd.json
+  s_dd51bf282723cd::t_2ca2778f4e5db1 25,31-32,37,43-44,60,65-66,87,95,103,117
+docs/plans/003-knob-lag/assets/tasks/phase-1/tasks.dd.md
+  s_dd51bf282723cd::t_f5294220a114c3 38-41,52,58,64,71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "33e655c452e1f392aa691d58539aa8ccf5eb42bd",
+  "prompts": {},
+  "sessions": {
+    "s_dd51bf282723cd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "58b2a6ea-9d92-4cfd-b554-854a81529448",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "Vaughan Knight <252951+vaughanknight@users.noreply.github.com>"
+    }
+  }
+}
