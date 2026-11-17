@@ -213,7 +213,8 @@ If `just` is unavailable, run the commands from `justfile` directly.
 
 No Mac needed: an M5StickC Plus (ESP32) talks to the knob over BLE and to the
 amp over Wi-Fi (**2.4 GHz only**), and shows the volume, source and any fault on
-its screen. It starts in DRY-RUN every time; you switch it live deliberately.
+its screen. It starts in DRY-RUN; `just fw-live` switches it live (remembered
+until `just fw-dry-run`).
 
 ```bash
 brew install platformio

@@ -46,33 +46,36 @@
         {
           "id": "tk-2303",
           "title": "Screen v3: big dB + bar against the cap on turn, cap-blocked flash, mute/source confirmations, DRY-RUN/LIVE badge",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2303",
           "success": "Each state renders on device",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0206",
             "../../../plan.dd.json#acceptance_criteria/ac-0207"
-          ]
+          ],
+          "receipt": "display_ui.cpp: DRY-RUN/LIVE badge, dB+bar to max_db, red MAX on refusal, MUTED/UNMUTED, Optical/Spotify, failure + dry-run lines; builds + renders (dry-run flash)"
         },
         {
           "id": "tk-2304",
-          "title": "Live switch: serial `live on` requires typing a confirmation phrase; live is session-only (never persisted: every boot is DRY-RUN); `live off` instant; switching mode flushes the event queue",
-          "state": "unchecked",
+          "title": "Live switch: serial `live on` requires the confirmation phrase; live state persisted in NVS (owner decision: remember LIVE); `live off` instant and persisted; switching mode flushes the event queue",
+          "state": "checked",
           "done": "#done_when/tk-2304",
           "success": "Live mode only after explicit confirm; badge reflects it; reboot returns to DRY-RUN",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0207"
-          ]
+          ],
+          "receipt": "Serial: fresh boot live=false; wrong/missing phrase refused; live on <phrase> → reboot → live=1; live off → reboot → live=0; queue flushed on change (control_flush)"
         },
         {
           "id": "tk-2305",
           "title": "Docs: docs/how/esp32-bridge.md (flash, pair, Wi-Fi, go live, cut-over, rollback to Mac daemon, clear bonds) + README \"Run it on an ESP32\"",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2305",
           "success": "Runbook followed end-to-end in tk-2306",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0208"
-          ]
+          ],
+          "receipt": "docs/how/esp32-bridge.md (flash, pair, Wi-Fi 2.4 GHz, screen, going live, safety rules, console, cut-over, rollback); README 'Run it on an ESP32' + intro updated; just fw-live/fw-dry-run/fw-status"
         },
         {
           "id": "tk-2306",
@@ -123,14 +126,14 @@
           {
             "id": "dw-3030",
             "assertion": "Cap flash shown when refusal happens (dry-run test)",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
         "tk-2304": [
           {
             "id": "dw-3040",
-            "assertion": "Device boots DRY-RUN, including after a confirmed `live on` + reboot",
+            "assertion": "Fresh device boots DRY-RUN; after `live on <phrase>` + reboot it boots LIVE; after `live off` + reboot it boots DRY-RUN",
             "state": "checked",
             "pressure": "not-applicable"
           },
@@ -151,13 +154,13 @@
           {
             "id": "dw-3050",
             "assertion": "README links runbook",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-3051",
             "assertion": "Runbook covers rollback",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],

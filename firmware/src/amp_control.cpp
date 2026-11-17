@@ -9,6 +9,8 @@
 #include <atomic>
 #include <string>
 
+#include "config_store.h"
+
 namespace {
 
 constexpr uint32_t kMaxEventAgeMs = 1000;
@@ -48,7 +50,7 @@ knob::Config g_config;
 HttpAmp* g_amp = nullptr;
 QueueHandle_t g_queue = nullptr;
 SemaphoreHandle_t g_lock = nullptr;
-std::atomic<bool> g_live{false};  // session-only: every boot is dry-run
+std::atomic<bool> g_live{false};  // restored from NVS by control_start
 std::atomic<uint32_t> g_generation{0};
 std::atomic<uint32_t> g_dropped{0};
 ControlResult g_last;
@@ -90,6 +92,7 @@ void control_task(void*) {
 
 void control_start(const knob::Config& config) {
     g_config = config;
+    g_live = live_load();
     g_amp = new HttpAmp(config.host, config.port);
     g_queue = xQueueCreate(kQueueDepth, sizeof(Pending));
     g_lock = xSemaphoreCreateMutex();
@@ -111,7 +114,8 @@ void control_flush() {
 void control_set_live(bool live) {
     control_flush();
     g_live = live;
-    Serial.printf("{\"live\":%s}\n", live ? "true" : "false");
+    const bool saved = live_save(live);
+    Serial.printf("{\"live\":%s,\"remembered\":%s}\n", live ? "true" : "false", saved ? "true" : "false");
 }
 
 bool control_live() { return g_live; }

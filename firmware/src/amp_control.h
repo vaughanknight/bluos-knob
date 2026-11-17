@@ -13,7 +13,7 @@ struct ControlResult {
     knob::ExecResult result;
 };
 
-// config is copied: control settings take effect after a reboot.
+// config is copied: control settings take effect after a reboot. Restores the remembered live flag.
 void control_start(const knob::Config& config);
 // Queue a gesture; dropped when stale, when the queue is full, or when superseded by a mode/link change.
 void control_submit(knob::Action action, uint32_t event_ms);

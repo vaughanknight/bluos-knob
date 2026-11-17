@@ -36,3 +36,19 @@ bool config_save(const knob::Config& c) {
     p.end();
     return ok;
 }
+
+bool live_load() {
+    Preferences p;
+    p.begin(kNamespace, true);
+    const bool live = p.getBool("live", false);
+    p.end();
+    return live;
+}
+
+bool live_save(bool live) {
+    Preferences p;
+    if (!p.begin(kNamespace, false)) return false;
+    const bool ok = p.putBool("live", live) == 1;
+    p.end();
+    return ok;
+}

@@ -37,9 +37,9 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | tk-2301 | RED: native policy/executor tests with Test Doc blocks (fake BluOS transport + fake clock): action→command table; every step does a fresh successful /Volume read first and refuses on missing/invalid dB; increase refused past max_db incl. amp changed externally since last poll; decrease allowed; mute toggle reads fresh mute state; source switch sets safe dB; dry-run emits no writes; events older than 1 s or queued before a live/dry-run or link transition are dropped; a write with a lost/timed-out response is never retried; command-path backoff after failures | — | — | [x] checked | — | test_amp_policy: 11 tests with Test Doc blocks, RED 11/11 failed on stub; FakeAmp models dB/mute/source/lost responses | [x] 2/2 [tk-2301](#tk-2301) | Tests fail before policy exists | — | [ac-0206](../../../plan.dd.md#acceptance-criteria), [ac-0207](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2302 | GREEN: knob_core policy + executor (fresh read before each write, fail closed, no write replay, stale-event expiry); BluOS write adapter (/Volume?db=, /Volume?mute=, /Play?inputTypeIndex=, Spotify via sources lookup + /Play?url=, /Volume?abs_db=) | — | — | [x] checked | — | pio test -e native 27/27; endpoints = bluos_daemon.py (/Volume?db=, ?mute=, ?abs_db=, /Play?inputTypeIndex=, /RadioBrowse?service=Capture + /Play?url=) | [x] 2/2 [tk-2302](#tk-2302) | Policy tests green; adapter mirrors scripts/bluos_*.py endpoints | — | [ac-0206](../../../plan.dd.md#acceptance-criteria), [ac-0207](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2303 | Screen v3: big dB + bar against the cap on turn, cap-blocked flash, mute/source confirmations, DRY-RUN/LIVE badge | — | — | [ ] unchecked | — | — | [ ] 0/1 [tk-2303](#tk-2303) | Each state renders on device | — | [ac-0206](../../../plan.dd.md#acceptance-criteria), [ac-0207](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2304 | Live switch: serial `live on` requires typing a confirmation phrase; live is session-only (never persisted: every boot is DRY-RUN); `live off` instant; switching mode flushes the event queue | — | — | [ ] unchecked | — | — | [x] 3/3 [tk-2304](#tk-2304) | Live mode only after explicit confirm; badge reflects it; reboot returns to DRY-RUN | — | [ac-0207](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2305 | Docs: docs/how/esp32-bridge.md (flash, pair, Wi-Fi, go live, cut-over, rollback to Mac daemon, clear bonds) + README "Run it on an ESP32" | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2305](#tk-2305) | Runbook followed end-to-end in tk-2306 | — | [ac-0208](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2303 | Screen v3: big dB + bar against the cap on turn, cap-blocked flash, mute/source confirmations, DRY-RUN/LIVE badge | — | — | [x] checked | — | display_ui.cpp: DRY-RUN/LIVE badge, dB+bar to max_db, red MAX on refusal, MUTED/UNMUTED, Optical/Spotify, failure + dry-run lines; builds + renders (dry-run flash) | [x] 1/1 [tk-2303](#tk-2303) | Each state renders on device | — | [ac-0206](../../../plan.dd.md#acceptance-criteria), [ac-0207](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2304 | Live switch: serial `live on` requires the confirmation phrase; live state persisted in NVS (owner decision: remember LIVE); `live off` instant and persisted; switching mode flushes the event queue | — | — | [x] checked | — | Serial: fresh boot live=false; wrong/missing phrase refused; live on &lt;phrase&gt; → reboot → live=1; live off → reboot → live=0; queue flushed on change (control_flush) | [x] 3/3 [tk-2304](#tk-2304) | Live mode only after explicit confirm; badge reflects it; reboot returns to DRY-RUN | — | [ac-0207](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2305 | Docs: docs/how/esp32-bridge.md (flash, pair, Wi-Fi, go live, cut-over, rollback to Mac daemon, clear bonds) + README "Run it on an ESP32" | — | — | [x] checked | — | docs/how/esp32-bridge.md (flash, pair, Wi-Fi 2.4 GHz, screen, going live, safety rules, console, cut-over, rollback); README 'Run it on an ESP32' + intro updated; just fw-live/fw-dry-run/fw-status | [x] 2/2 [tk-2305](#tk-2305) | Runbook followed end-to-end in tk-2306 | — | [ac-0208](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2306 | Supervised cut-over (Vaughan's go-ahead): unload Mac launchd daemon, dry-run check, live on, step down/up near cap, mute, both sources; then rollback rehearsal | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2306](#tk-2306) | Recorded in execution log; amp never exceeded max_db | — | [ac-0206](../../../plan.dd.md#acceptance-criteria), [ac-0207](../../../plan.dd.md#acceptance-criteria), [ac-0208](../../../plan.dd.md#acceptance-criteria) | — |
 
 <a id="done-when"></a>
@@ -64,13 +64,13 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-3030 | Cap flash shown when refusal happens (dry-run test) | [ ] unchecked | not-applicable |
+| dw-3030 | Cap flash shown when refusal happens (dry-run test) | [x] checked | not-applicable |
 
 ### tk-2304
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-3040 | Device boots DRY-RUN, including after a confirmed `live on` + reboot | [x] checked | not-applicable |
+| dw-3040 | Fresh device boots DRY-RUN; after `live on &lt;phrase&gt;` + reboot it boots LIVE; after `live off` + reboot it boots DRY-RUN | [x] checked | not-applicable |
 | dw-3041 | `live on` without phrase refused | [x] checked | not-applicable |
 | dw-3042 | Queue flushed on mode change | [x] checked | not-applicable |
 
@@ -78,8 +78,8 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-3050 | README links runbook | [ ] unchecked | not-applicable |
-| dw-3051 | Runbook covers rollback | [ ] unchecked | not-applicable |
+| dw-3050 | README links runbook | [x] checked | not-applicable |
+| dw-3051 | Runbook covers rollback | [x] checked | not-applicable |
 
 ### tk-2306
 

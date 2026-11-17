@@ -126,3 +126,15 @@ fw-monitor:
 # Enter Wi-Fi + amp settings on the device (password prompt is hidden). Close any serial monitor first.
 fw-wifi:
     "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_wifi.py {{ if fw_port != "" { "--port " + fw_port } else { "" } }}
+
+# Device status as JSON (restarts the device to connect).
+fw-status:
+    "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_console.py status {{ if fw_port != "" { "--port " + fw_port } else { "" } }}
+
+# Let the knob control the amp (you type the confirmation phrase); remembered until fw-dry-run.
+fw-live:
+    "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_console.py live {{ if fw_port != "" { "--port " + fw_port } else { "" } }}
+
+# Stop controlling the amp (remembered across restarts).
+fw-dry-run:
+    "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_console.py dry-run {{ if fw_port != "" { "--port " + fw_port } else { "" } }}

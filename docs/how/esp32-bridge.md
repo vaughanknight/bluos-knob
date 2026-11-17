@@ -70,16 +70,18 @@ a knob turn or when the volume changes elsewhere.
 
 ## Going live
 
-The device **always starts in DRY-RUN**: it reads the amp and runs every safety
-check, but sends nothing. To let the knob control the amp for this session,
-type on the serial console:
+A freshly flashed device is in **DRY-RUN**: it reads the amp and runs every
+safety check, but sends nothing. To let the knob control the amp:
 
-```text
-live on I understand this controls the amplifier
+```bash
+just fw-live      # asks you to type: I understand this controls the amplifier
+just fw-dry-run   # stop controlling the amp
+just fw-status    # current state as JSON
 ```
 
-`live off` returns to dry-run immediately. Live mode is **not remembered**: any
-restart, power blip or new serial connection puts it back in DRY-RUN.
+(Or on the serial console: `live on I understand this controls the amplifier` /
+`live off`.) The mode is **remembered across restarts** until you switch it back.
+The badge always shows which mode it's in.
 
 ## Safety rules (same as the Mac daemon, tightened)
 
@@ -100,7 +102,7 @@ restart, power blip or new serial connection puts it back in DRY-RUN.
 | `status` | one JSON line: knob, Wi-Fi, amp, live, faults, heap |
 | `show` | settings (password masked) |
 | `set <key> <value>` | change a setting (`wifi_ssid`, `wifi_pass`, `host`, `port`, `max_db`, `source_safe_db`, `step_db`, `optical_input`, `spotify_source`); unsafe values are refused; takes effect after `reboot` |
-| `reboot` | restart (comes back in DRY-RUN) |
+| `reboot` | restart (keeps the remembered LIVE/DRY-RUN mode) |
 | `live on <phrase>` / `live off` | see *Going live* |
 | `scan` · `bonds clear` | BLE diagnostics / forget the knob |
 | `wifi scan` | list visible 2.4 GHz networks |
@@ -115,11 +117,11 @@ restart, power blip or new serial connection puts it back in DRY-RUN.
 2. Forget the knob on the Mac (above) and pair it to the device.
 3. Check DRY-RUN behaviour: turn, mute and both source buttons show the expected
    result, and the amp doesn't move.
-4. Go live (above). Turn down, then up towards the cap and confirm **MAX**.
+4. `just fw-live`. Turn down, then up towards the cap and confirm **MAX**.
 
 ## Roll back to the Mac daemon
 
-1. `live off` (or unplug the device).
+1. `just fw-dry-run` (or unplug the device).
 2. Re-pair the knob with the Mac (Bluetooth settings; un-ignore it if needed).
 3. Re-enable the daemon:
    ```bash

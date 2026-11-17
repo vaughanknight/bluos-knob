@@ -61,7 +61,7 @@ Vaughan wants the knob-to-amp bridge to run on a cheap M5 ESP32 with a small scr
 | ac-0204 | `just fw-wifi` prompts for SSID and a hidden password in the terminal, stores them in device NVS over serial, and neither value appears in serial output, logs, or git. | [x] checked | — | just fw-wifi: getpass prompt → NVS; show masks ****; nothing secret in git (agent-secrets check-staged clean) | — | — |
 | ac-0205 | On Wi-Fi the screen shows the amp's current volume (dB) and source from BluOS; when the amp or knob is unreachable it shows a plain-language fault (e.g. "can't reach amp 192.168.1.67", "knob not connected"). | [x] checked | — | Screen shows amp dB + source from /Volume,/Status; plain faults for Wi-Fi not found, amp unreachable, knob not connected (phase-2 log) | — | — |
 | ac-0206 | A volume increase that would exceed max dB is refused and flagged on screen; source switches set volume to the safe level ≤ −24 dB; both are covered by host tests mirroring `assert_safe_step` and `safe_abs_db_value`. | [ ] unchecked | — | — | — | — |
-| ac-0207 | The device boots in dry-run on every power-up (shows DRY-RUN, sends no write commands); live control is enabled only for the current session by an explicit serial command with a confirmation phrase, and is shown on screen. | [ ] unchecked | — | — | — | — |
+| ac-0207 | The device ships in dry-run (shows DRY-RUN, sends no write commands). Live control is enabled only by an explicit serial command with a confirmation phrase, is remembered across restarts until `live off` (owner decision 2026-11-17), and the current mode is always shown on screen. | [ ] unchecked | — | — | — | — |
 | ac-0208 | `docs/how/esp32-bridge.md` covers flash, pairing, Wi-Fi setup, going live, and cut-over/rollback with the Mac daemon; README links it. | [ ] unchecked | — | — | — | — |
 | ac-0209 | The screen dims after inactivity and wakes on the next knob event or status change. | [x] checked | — | Dimmer 30 s, wakes on knob event and volume/source change; test_timing + Vaughan confirmation | — | — |
 
@@ -134,6 +134,7 @@ Assumes the board is an M5StickC or StickC Plus (ESP32-PICO-D4 with a screen); M
 | 2026-11-17 | Workflow mode / testing / mocks / docs (Round 1) | Decided by the bluos-knob prime under Vaughan's direction "just go ahead and build it, can always adjust afterwards" (tmwk885d1c 05:11:55Z): Full mode; Hybrid testing; fakes only per constitution; docs in docs/how + README. |
 | 2026-11-17 | Screen content | Vaughan approved the proposed screens: idle dB/source/link icons, big dB + cap bar on turn, cap-blocked flash, mute/source confirmations, plain-language faults, dim after inactivity ("yep, those look good"). |
 | 2026-11-17 | How are Wi-Fi credentials entered? | Vaughan: "i can do it via some CLI you can help me with" → `just fw-wifi` with a hidden terminal prompt writing to NVS over serial. |
+| 2026-11-17 | Live mode: session-only (needs a computer after every restart), a 3 s button hold per power-up, or remembered across restarts? | Vaughan (thread tmwk885d1c, 08:23:19Z): "2: remember LIVE". Live is enabled once by the serial phrase and persisted in NVS; `live off` is persisted too. Supersedes plan-review fix 3 (session-only live) by explicit owner decision; all other safety rules unchanged. |
 
 <a id="planning-seam"></a>
 

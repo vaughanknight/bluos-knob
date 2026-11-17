@@ -256,7 +256,8 @@ void setup() {
         bluos_start(g_config.host, g_config.port);
         control_start(g_config);
     }
-    Serial.println("{\"live\":false,\"note\":\"dry-run at every boot\"}");
+    Serial.printf("{\"live\":%s,\"note\":\"remembered across restarts; live off to stop\"}\n",
+                  control_live() ? "true" : "false");
     g_dimmer.touch(millis());
 }
 

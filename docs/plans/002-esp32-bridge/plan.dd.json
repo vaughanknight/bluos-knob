@@ -83,7 +83,7 @@
         },
         {
           "id": "ac-0207",
-          "claim": "The device boots in dry-run on every power-up (shows DRY-RUN, sends no write commands); live control is enabled only for the current session by an explicit serial command with a confirmation phrase, and is shown on screen.",
+          "claim": "The device ships in dry-run (shows DRY-RUN, sends no write commands). Live control is enabled only by an explicit serial command with a confirmation phrase, is remembered across restarts until `live off` (owner decision 2026-11-17), and the current mode is always shown on screen.",
           "state": "unchecked"
         },
         {
@@ -226,6 +226,11 @@
           "session": "2026-11-17",
           "question": "How are Wi-Fi credentials entered?",
           "answer": "Vaughan: \"i can do it via some CLI you can help me with\" → `just fw-wifi` with a hidden terminal prompt writing to NVS over serial."
+        },
+        {
+          "session": "2026-11-17",
+          "question": "Live mode: session-only (needs a computer after every restart), a 3 s button hold per power-up, or remembered across restarts?",
+          "answer": "Vaughan (thread tmwk885d1c, 08:23:19Z): \"2: remember LIVE\". Live is enabled once by the serial phrase and persisted in NVS; `live off` is persisted too. Supersedes plan-review fix 3 (session-only live) by explicit owner decision; all other safety rules unchanged."
         }
       ]
     },
