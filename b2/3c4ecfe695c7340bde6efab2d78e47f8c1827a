@@ -1,0 +1,23 @@
+firmware/src/main.cpp
+  s_dd51bf282723cd::t_6f01383f5d5882 127,132-138,160
+  s_dd51bf282723cd::t_40ea322925bf05 128,139
+  s_dd51bf282723cd::t_8665bb9c7dfc26 129-131
+docs/plans/002-esp32-bridge/assets/tasks/phase-2/execution.log.md
+  s_dd51bf282723cd::t_d525f6c604ee26 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "b23c4ecfe695c7340bde6efab2d78e47f8c1827a",
+  "prompts": {},
+  "sessions": {
+    "s_dd51bf282723cd": {
+      "agent_id": {
+        "tool": "github-copilot-cli",
+        "id": "58b2a6ea-9d92-4cfd-b554-854a81529448",
+        "model": "claude-opus-5.5"
+      },
+      "human_author": "Vaughan Knight <252951+vaughanknight@users.noreply.github.com>"
+    }
+  }
+}
