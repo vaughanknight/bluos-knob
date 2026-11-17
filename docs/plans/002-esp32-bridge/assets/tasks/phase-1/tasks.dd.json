@@ -1,0 +1,200 @@
+{
+  "dd": {
+    "schema": "builder/plan"
+  },
+  "sections": [
+    {
+      "name": "meta",
+      "value": {
+        "title": "Phase 1: Knob to screen over BLE",
+        "slug": "phase-1",
+        "status": "ready",
+        "summary": "Prove BLE, port the decoder test-first, show the knob on screen."
+      }
+    },
+    {
+      "name": "summary",
+      "value": "Work top to bottom. Hardware smoke steps that take the knob from the Mac or touch the amp wait for Vaughan's go-ahead."
+    },
+    {
+      "name": "tasks",
+      "value": [
+        {
+          "id": "tk-2101",
+          "title": "Spike: throwaway NimBLE-Arduino sketch in /tmp/bluos-ble-spike bonds to ANTICATER_MINI and prints raw Report notifications",
+          "state": "unchecked",
+          "done": "#done_when/tk-2101",
+          "success": "Go/no-go verdict, payload form and bonding quirks recorded in the execution log; spike code discarded",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0203"
+          ]
+        },
+        {
+          "id": "tk-2102",
+          "title": "Scaffold firmware/ PlatformIO project (espressif32 Arduino + M5Unified + NimBLE-Arduino; envs m5stick and native) and justfile fw-build/fw-test/fw-flash/fw-monitor via uvx",
+          "state": "unchecked",
+          "done": "#done_when/tk-2102",
+          "success": "`just fw-build` succeeds; `just fw-test` runs (empty) native suite; .pio ignored",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0201"
+          ]
+        },
+        {
+          "id": "tk-2103",
+          "title": "RED: native tests for knob_core decoder with Test Doc blocks: real capture vectors (03e900 … 030000), report-id-less forms, unknown usage",
+          "state": "unchecked",
+          "done": "#done_when/tk-2103",
+          "success": "Tests compile and fail for the missing decoder",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0201",
+            "../../../plan.dd.json#acceptance_criteria/ac-0202"
+          ]
+        },
+        {
+          "id": "tk-2104",
+          "title": "GREEN: implement knob_core decoder (16-bit LE usage scan + release rule, same table as normalizer.py)",
+          "state": "unchecked",
+          "done": "#done_when/tk-2104",
+          "success": "All decoder tests pass",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0201",
+            "../../../plan.dd.json#acceptance_criteria/ac-0202"
+          ]
+        },
+        {
+          "id": "tk-2105",
+          "title": "BLE knob adapter: scan for ANTICATER name, bond, subscribe to HID reports, enqueue raw payloads to a bounded FreeRTOS queue; reconnect with backoff; serial `bonds clear`",
+          "state": "unchecked",
+          "done": "#done_when/tk-2105",
+          "success": "Adapter compiles; callback does no work beyond enqueue",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0203"
+          ]
+        },
+        {
+          "id": "tk-2106",
+          "title": "Screen v1 + serial log: board name at boot, knob link state, last action + counter; one JSON-ish action line per event on serial",
+          "state": "unchecked",
+          "done": "#done_when/tk-2106",
+          "success": "Renders on the detected M5 model",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0203"
+          ]
+        },
+        {
+          "id": "tk-2107",
+          "title": "Hardware smoke (Vaughan's go-ahead: unpairs knob from Mac): flash, bond, every gesture shows on screen + serial; knob power-cycle reconnects",
+          "state": "unchecked",
+          "done": "#done_when/tk-2107",
+          "success": "Recorded in execution log with serial excerpts",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0203"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "done_when",
+      "value": {
+        "tk-2101": [
+          {
+            "id": "dw-1010",
+            "assertion": "Serial shows raw notification bytes for turn up/down and press",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1011",
+            "assertion": "Verdict + constraints written to execution log",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2102": [
+          {
+            "id": "dw-1020",
+            "assertion": "just fw-build exit 0",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1021",
+            "assertion": "just fw-test exit 0",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1022",
+            "assertion": "git status shows no .pio artefacts",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2103": [
+          {
+            "id": "dw-1030",
+            "assertion": "just fw-test fails on decoder assertions before implementation",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2104": [
+          {
+            "id": "dw-1040",
+            "assertion": "just fw-test green",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1041",
+            "assertion": "Table matches CONSUMER_USAGE_TO_ACTION in normalizer.py",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2105": [
+          {
+            "id": "dw-1050",
+            "assertion": "Code review: callback only enqueues",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1051",
+            "assertion": "just fw-build green",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2106": [
+          {
+            "id": "dw-1060",
+            "assertion": "Boot screen shows detected board name",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1061",
+            "assertion": "Action line format documented in code",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2107": [
+          {
+            "id": "dw-1070",
+            "assertion": "Each of up/down/mute/brightness± seen on screen",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-1071",
+            "assertion": "Reconnect after knob power-cycle observed",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ]
+      }
+    }
+  ]
+}

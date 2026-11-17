@@ -1,0 +1,167 @@
+{
+  "dd": {
+    "schema": "builder/plan"
+  },
+  "sections": [
+    {
+      "name": "meta",
+      "value": {
+        "title": "Phase 3: Guarded amp control and cut-over",
+        "slug": "phase-3",
+        "status": "ready",
+        "summary": "Safety policy test-first, live switch, supervised cut-over with rollback."
+      }
+    },
+    {
+      "name": "summary",
+      "value": "Work top to bottom. Hardware smoke steps that take the knob from the Mac or touch the amp wait for Vaughan's go-ahead."
+    },
+    {
+      "name": "tasks",
+      "value": [
+        {
+          "id": "tk-2301",
+          "title": "RED: native policy tests with Test Doc blocks: action→command table, increase refused past max_db, decrease always allowed, source switch sets safe dB, dry-run emits no writes (fake BluOS transport)",
+          "state": "unchecked",
+          "done": "#done_when/tk-2301",
+          "success": "Tests fail before policy exists",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0206",
+            "../../../plan.dd.json#acceptance_criteria/ac-0207"
+          ]
+        },
+        {
+          "id": "tk-2302",
+          "title": "GREEN: knob_core policy + executor; BluOS write adapter (/Volume?db=, /Volume?mute=, /Play?inputTypeIndex=, Spotify via sources lookup + /Play?url=, /Volume?abs_db=)",
+          "state": "unchecked",
+          "done": "#done_when/tk-2302",
+          "success": "Policy tests green; adapter mirrors scripts/bluos_*.py endpoints",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0206",
+            "../../../plan.dd.json#acceptance_criteria/ac-0207"
+          ]
+        },
+        {
+          "id": "tk-2303",
+          "title": "Screen v3: big dB + bar against the cap on turn, cap-blocked flash, mute/source confirmations, DRY-RUN/LIVE badge",
+          "state": "unchecked",
+          "done": "#done_when/tk-2303",
+          "success": "Each state renders on device",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0206",
+            "../../../plan.dd.json#acceptance_criteria/ac-0207"
+          ]
+        },
+        {
+          "id": "tk-2304",
+          "title": "Live switch: serial `live on` requires typing a confirmation phrase, persists in NVS, boots dry-run if config invalid; `live off` instant",
+          "state": "unchecked",
+          "done": "#done_when/tk-2304",
+          "success": "Live mode only after explicit confirm; badge reflects it",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0207"
+          ]
+        },
+        {
+          "id": "tk-2305",
+          "title": "Docs: docs/how/esp32-bridge.md (flash, pair, Wi-Fi, go live, cut-over, rollback to Mac daemon, clear bonds) + README \"Run it on an ESP32\"",
+          "state": "unchecked",
+          "done": "#done_when/tk-2305",
+          "success": "Runbook followed end-to-end in tk-2306",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0208"
+          ]
+        },
+        {
+          "id": "tk-2306",
+          "title": "Supervised cut-over (Vaughan's go-ahead): unload Mac launchd daemon, dry-run check, live on, step down/up near cap, mute, both sources; then rollback rehearsal",
+          "state": "unchecked",
+          "done": "#done_when/tk-2306",
+          "success": "Recorded in execution log; amp never exceeded max_db",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0206",
+            "../../../plan.dd.json#acceptance_criteria/ac-0207",
+            "../../../plan.dd.json#acceptance_criteria/ac-0208"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "done_when",
+      "value": {
+        "tk-2301": [
+          {
+            "id": "dw-3010",
+            "assertion": "just fw-test red on policy assertions",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2302": [
+          {
+            "id": "dw-3020",
+            "assertion": "just fw-test green",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-3021",
+            "assertion": "Endpoints match scripts/bluos_daemon.py execute_command",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2303": [
+          {
+            "id": "dw-3030",
+            "assertion": "Cap flash shown when refusal happens (dry-run test)",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2304": [
+          {
+            "id": "dw-3040",
+            "assertion": "Device boots DRY-RUN by default",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-3041",
+            "assertion": "`live on` without phrase refused",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2305": [
+          {
+            "id": "dw-3050",
+            "assertion": "README links runbook",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-3051",
+            "assertion": "Runbook covers rollback",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-2306": [
+          {
+            "id": "dw-3060",
+            "assertion": "Cap refusal observed live",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          },
+          {
+            "id": "dw-3061",
+            "assertion": "Rollback restores Mac daemon control",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ]
+      }
+    }
+  ]
+}
