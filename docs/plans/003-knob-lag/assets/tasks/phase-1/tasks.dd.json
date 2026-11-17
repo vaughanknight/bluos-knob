@@ -22,24 +22,26 @@
         {
           "id": "tk-3101",
           "title": "RED: native tests for the click coalescer (net sum, barriers, zero-net) and the capped net step (clamp to max_db, muted, race)",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-3101",
           "success": "Tests fail on stubs",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0301",
             "../../../plan.dd.json#acceptance_criteria/ac-0302"
-          ]
+          ],
+          "receipt": "RED: 3 failed (coalesce stub empty; clamp refused instead of stopping at cap)"
         },
         {
           "id": "tk-3102",
           "title": "GREEN: knob_core coalescer + clamped net volume step in amp_policy",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-3102",
           "success": "All native tests pass",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0301",
             "../../../plan.dd.json#acceptance_criteria/ac-0302"
-          ]
+          ],
+          "receipt": "pio test -e native 33/33"
         },
         {
           "id": "tk-3103",
@@ -55,12 +57,13 @@
         {
           "id": "tk-3104",
           "title": "main/display: skip redraws while events are queued or a command is in flight; redraw once when idle",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-3104",
           "success": "Builds; no redraw during bursts",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0304"
-          ]
+          ],
+          "receipt": "main.cpp: ui_render only when knob queue empty and !control_busy()"
         },
         {
           "id": "tk-3105",
@@ -81,7 +84,7 @@
           {
             "id": "dw-1010",
             "assertion": "just fw-test red on the new assertions",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -89,7 +92,7 @@
           {
             "id": "dw-1020",
             "assertion": "just fw-test green",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -97,7 +100,7 @@
           {
             "id": "dw-1030",
             "assertion": "pio run green",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
@@ -111,7 +114,7 @@
           {
             "id": "dw-1040",
             "assertion": "Code: ui_render gated on idle",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],

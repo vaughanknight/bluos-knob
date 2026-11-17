@@ -23,3 +23,5 @@ void control_set_live(bool live);
 bool control_live();
 ControlResult control_last();
 uint32_t control_dropped();
+// True while knob commands are queued or one is being sent to the amp.
+bool control_busy();

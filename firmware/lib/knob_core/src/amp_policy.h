@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "config.h"
 #include "decoder.h"
@@ -46,6 +47,10 @@ struct ExecResult {
 };
 
 Command plan_command(Action action, const Config& config);
+
+// Combines a burst of pending knob actions into the fewest commands, in order: consecutive volume
+// clicks become one net VolumeStep (zero net -> nothing); any other command is a barrier kept as-is.
+std::vector<Command> coalesce(const std::vector<Action>& actions, const Config& config);
 ExecResult execute(const Command& command, const Config& config, AmpTransport& amp, bool live);
 
 bool event_is_stale(uint32_t event_ms, uint32_t now_ms, uint32_t max_age_ms);

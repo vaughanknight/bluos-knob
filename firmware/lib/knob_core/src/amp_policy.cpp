@@ -133,6 +133,29 @@ Command plan_command(Action action, const Config& config) {
     }
 }
 
+std::vector<Command> coalesce(const std::vector<Action>& actions, const Config& config) {
+    std::vector<Command> out;
+    int net = 0;
+    auto flush = [&]() {
+        if (net != 0) out.push_back({CommandKind::VolumeStep, net * config.step_db});
+        net = 0;
+    };
+    for (const Action action : actions) {
+        if (action == Action::VolumeUp) {
+            net++;
+        } else if (action == Action::VolumeDown) {
+            net--;
+        } else {
+            const Command c = plan_command(action, config);
+            if (c.kind == CommandKind::Ignore) continue;
+            flush();
+            out.push_back(c);
+        }
+    }
+    flush();
+    return out;
+}
+
 ExecResult execute(const Command& command, const Config& config, AmpTransport& amp, bool live) {
     ExecResult r;
     r.kind = command.kind;
@@ -148,12 +171,15 @@ ExecResult execute(const Command& command, const Config& config, AmpTransport& a
             if (!read_volume(amp, &volume, &error)) return failed(r, error);
             r.has_before = true;
             r.before_db = volume.db;
-            const double planned = volume.db + command.step_db;
+            double planned = volume.db + command.step_db;
             if (command.step_db > 0 && planned > config.max_db) {
-                r.outcome = Outcome::Refused;
                 r.cap_blocked = true;
                 r.message = "max " + fmt_db(config.max_db) + " dB";
-                return r;
+                if (volume.db >= config.max_db) {  // already at/over the cap: nothing to raise
+                    r.outcome = Outcome::Refused;
+                    return r;
+                }
+                planned = config.max_db;  // stop exactly at the cap
             }
             r.has_after = true;
             r.after_db = planned;

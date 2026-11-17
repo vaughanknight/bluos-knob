@@ -303,6 +303,8 @@ void loop() {
     g_ui.fault = current_fault(g_ui.amp);
     g_ui.show_action = (now - g_action_at) < kActionShowMs && g_ui.events > 0;
     g_ui.dimmed = g_dimmer.dimmed(now) && g_ui.fault.empty();
-    ui_render(g_ui);
+    // The screen is for debugging: never redraw while knob events or amp commands are pending, so a
+    // full-screen redraw can't delay draining the knob queue. One redraw happens once it's idle.
+    if (uxQueueMessagesWaiting(g_events) == 0 && !control_busy()) ui_render(g_ui);
     delay(10);
 }

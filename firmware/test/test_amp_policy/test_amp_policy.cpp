@@ -134,10 +134,10 @@ void given_volume_at_or_near_cap_when_stepping_up_then_refused_without_write() {
     /*
     Test Doc:
     - Why: Safety-first: the knob must never push the amp past max_db (default -24 dB).
-    - Contract: if current + step > max_db the increase is refused, cap_blocked is set, and nothing is written.
+    - Contract: at/above max_db an increase is refused with no write; otherwise it stops at max_db (cap_blocked).
     - Usage Notes: Mirrors assert_safe_step in scripts/bluos_volume_step.py.
     - Quality Contribution: Catches the core loudness guard regressing.
-    - Worked Example: amp -24 +1 -> refused; amp -24.5 (changed in the app since the last poll) +1 -> refused.
+    - Worked Example: amp -24 +1 -> refused, no write; amp -24.5 +1 -> clamped to exactly -24 (cap_blocked).
     */
     FakeAmp amp;
     amp.db = -24;
@@ -145,10 +145,11 @@ void given_volume_at_or_near_cap_when_stepping_up_then_refused_without_write() {
     TEST_ASSERT_EQUAL(Outcome::Refused, r.outcome);
     TEST_ASSERT_TRUE(r.cap_blocked);
     TEST_ASSERT_EQUAL_INT(0, amp.writes());
-    amp.db = -24.5;
+    amp.db = -24.5;  // plan 003: an increase that would pass the cap stops exactly at it
     r = run(Action::VolumeUp, amp);
-    TEST_ASSERT_EQUAL(Outcome::Refused, r.outcome);
-    TEST_ASSERT_EQUAL_DOUBLE(-24.5, amp.db);
+    TEST_ASSERT_EQUAL(Outcome::Done, r.outcome);
+    TEST_ASSERT_TRUE(r.cap_blocked);
+    TEST_ASSERT_EQUAL_DOUBLE(-24, amp.db);
 }
 
 void given_volume_above_cap_when_stepping_down_then_allowed() {
@@ -380,6 +381,67 @@ void given_input_with_its_own_level_when_switching_source_then_rechecked_and_low
     TEST_ASSERT_EQUAL_DOUBLE(-40, r.after_db);
 }
 
+static double net_step(const std::vector<knob::Command>& cmds, size_t i) { return cmds.at(i).step_db; }
+
+void given_click_bursts_when_coalesced_then_one_net_step_per_run_of_volume_clicks() {
+    /*
+    Test Doc:
+    - Why: Plan 003: back-and-forth turning queued one HTTP round-trip per click and backed up.
+    - Contract: consecutive up/down clicks sum to one VolumeStep (net * step_db); zero net emits nothing;
+      mute/source actions are barriers kept in order; ignored actions vanish.
+    - Usage Notes: the control task drains everything pending, coalesces, then executes in order.
+    - Quality Contribution: Catches lost clicks, reordering across a mute/source press, and no-op writes.
+    - Worked Example: up,down,up -> [+1]; up x5 -> [+5]; up,down -> []; up,up,mute,down -> [+2, mute, -1].
+    */
+    const knob::Config c = config();
+    std::vector<knob::Command> r = knob::coalesce({Action::VolumeUp, Action::VolumeDown, Action::VolumeUp}, c);
+    TEST_ASSERT_EQUAL_UINT(1, r.size());
+    TEST_ASSERT_EQUAL_DOUBLE(1, net_step(r, 0));
+    r = knob::coalesce({Action::VolumeUp, Action::VolumeUp, Action::VolumeUp, Action::VolumeUp, Action::VolumeUp}, c);
+    TEST_ASSERT_EQUAL_UINT(1, r.size());
+    TEST_ASSERT_EQUAL_DOUBLE(5, net_step(r, 0));
+    TEST_ASSERT_EQUAL_UINT(0, knob::coalesce({Action::VolumeUp, Action::VolumeDown}, c).size());
+    r = knob::coalesce({Action::VolumeUp, Action::VolumeUp, Action::MuteToggle, Action::NoOp, Action::VolumeDown}, c);
+    TEST_ASSERT_EQUAL_UINT(3, r.size());
+    TEST_ASSERT_EQUAL_DOUBLE(2, net_step(r, 0));
+    TEST_ASSERT_EQUAL(CommandKind::MuteToggle, r.at(1).kind);
+    TEST_ASSERT_EQUAL_DOUBLE(-1, net_step(r, 2));
+    r = knob::coalesce({Action::BrightnessUp, Action::BrightnessDown}, c);
+    TEST_ASSERT_EQUAL_UINT(2, r.size());
+    TEST_ASSERT_EQUAL(CommandKind::SourceSpotify, r.at(0).kind);
+    TEST_ASSERT_EQUAL(CommandKind::SourceOptical, r.at(1).kind);
+}
+
+void given_net_burst_past_cap_when_executed_then_stops_exactly_at_cap_in_one_write() {
+    /*
+    Test Doc:
+    - Why: A coalesced +N must never exceed max_db, including when muted or changed elsewhere meanwhile.
+    - Contract: one fresh read, one abs_db write of min(current + N, max_db); cap_blocked when clamped.
+    - Usage Notes: the muted basis (muteDb) and the race (abs write) rules from plan 002 still apply.
+    - Quality Contribution: Catches a coalesced jump past the cap.
+    - Worked Example: -27 +5 -> one write abs_db=-24; muted real -26 +5 -> -24; read -27, app +2 meanwhile, +5 -> -24.
+    */
+    const knob::Config c = config();
+    knob::Command up5{CommandKind::VolumeStep, 5};
+    FakeAmp amp;
+    amp.db = -27;
+    knob::ExecResult r = knob::execute(up5, c, amp, true);
+    TEST_ASSERT_EQUAL(Outcome::Done, r.outcome);
+    TEST_ASSERT_TRUE(r.cap_blocked);
+    TEST_ASSERT_EQUAL_INT(1, amp.writes());
+    TEST_ASSERT_EQUAL_DOUBLE(-24, amp.db);
+    FakeAmp muted;
+    muted.db = -26;
+    muted.mute = true;
+    knob::execute(up5, c, muted, true);
+    TEST_ASSERT_EQUAL_DOUBLE(-24, muted.db);
+    FakeAmp race;
+    race.db = -27;
+    race.race_db = 2;
+    knob::execute(up5, c, race, true);
+    TEST_ASSERT_EQUAL_DOUBLE(-24, race.db);
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(given_actions_when_planned_then_match_daemon_command_table);
@@ -396,5 +458,7 @@ int main() {
     RUN_TEST(given_muted_amp_when_stepping_or_switching_then_cap_uses_the_real_unmuted_level);
     RUN_TEST(given_volume_raised_elsewhere_between_read_and_write_when_stepping_up_then_never_exceeds_cap);
     RUN_TEST(given_input_with_its_own_level_when_switching_source_then_rechecked_and_lowered);
+    RUN_TEST(given_click_bursts_when_coalesced_then_one_net_step_per_run_of_volume_clicks);
+    RUN_TEST(given_net_burst_past_cap_when_executed_then_stops_exactly_at_cap_in_one_write);
     return UNITY_END();
 }
