@@ -42,3 +42,18 @@
 - **Discovery**: BLE payloads are 2 bytes with no report id (dossier F-02 prediction confirmed); covered by `given_ble_payload_without_report_id…`.
 - **Noteworthy**: tk-2101 throwaway spike marked `na`; the real adapter proved feasibility directly. Its coexistence assertion is moved to tk-2207.
 - **Discovery**: one knob detent often yields 2–3 events within ~100 ms (seq 35–37). Phase 3 policy must treat each as one step (Mac daemon does the same), so no change now; note for screen/feel.
+
+## tk-2107 reconnect: ESP32 side
+- 17:10:52 serial port open → POWERON_RESET; 17:10:53 scanning; **17:10:55 `{"knob":"connected","name":"","addr":"ee:aa:b8:d6:82:5e","reports":6}`**: bonded reconnect in ~2 s via the `isBonded` path (knob advertises without its name once bonded).
+- Knob-side drop: the knob has no off switch (Vaughan); testing by walking it out of range.
+
+## tk-2107 reconnect: knob side (bug found + fixed)
+- Out-of-range test: 17:12:27 `disconnected reason 520` (supervision timeout); 17:13:22 `connect_failed`; then the device scanned without ever seeing the knob again.
+- **Root cause (Discovery)**: the ESP32 controller's duplicate-advertisement filter persists across scans, so after one failed connect the knob was never reported again.
+- **Fix** (`firmware/src/ble_knob.cpp` rewrite): when a bond exists, skip scanning and keep an *async* direct connect pending to the bonded address (30 s timeout, retry after 500 ms); blocking secure/discover/subscribe moved out of the NimBLE host task into `loop()`; unbonded scans use `setDuplicateFilter(0)` and `setMaxResults(0)`.
+- After flashing: two `connect_failed reason 13` (timeout) while **the knob had re-attached to the Mac** (Vaughan 06:18:09Z: "it connected to the mac again"). Then 17:18:04 `{"knob":"connected","addr":"ee:aa:b8:d6:82:5e","reports":6}`; Vaughan: "it's fixed!".
+- **Noteworthy**: the knob keeps its Mac bond; if it drifts back to the Mac, forget it there again (goes in the Phase 3 runbook).
+- Added a serial `scan` diagnostic (logs nearby advertisers: address, type, adv type, name, RSSI, connectable, bonded) for future pairing problems.
+
+## Phase 1 complete
+- tk-2101 na (superseded; coexistence proof → tk-2207), tk-2102..2107 checked. AC-01, AC-02, AC-03 met.

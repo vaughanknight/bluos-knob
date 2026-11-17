@@ -18,6 +18,7 @@ class BleKnob {
     void begin(QueueHandle_t queue, const char* name_hint);
     void loop();
     void clear_bonds();
+    void diag_scan(uint32_t ms);  // log nearby advertisers (blocking)
 
     KnobLink link() const;
     uint32_t overflow_count() const;

@@ -92,12 +92,13 @@
         {
           "id": "tk-2107",
           "title": "Hardware smoke (Vaughan's go-ahead: unpairs knob from Mac): flash, bond, every gesture shows on screen + serial; knob power-cycle reconnects",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2107",
           "success": "Recorded in execution log with serial excerpts",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0203"
-          ]
+          ],
+          "receipt": "All 5 gestures seen on screen+serial (42 events, 0 dropped); ESP32 reset → bonded reconnect in 2 s (17:10:55); knob out-of-range drop 17:12:27 (reason 520) → after reconnect fix, auto-reconnect 17:18:04 once the knob released the Mac"
         }
       ]
     },
@@ -211,7 +212,7 @@
           {
             "id": "dw-1071",
             "assertion": "Reconnect after knob power-cycle observed",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ]

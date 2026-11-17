@@ -41,7 +41,7 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 | tk-2104 | GREEN: implement knob_core decoder (16-bit LE usage scan + release rule, same table as normalizer.py) | — | — | [x] checked | — | just fw-test: 5/5 passed; table = normalizer.py CONSUMER_USAGE_TO_ACTION (0xE9,0xEA,0xE2,0x6F,0x70) + same release rule | [x] 2/2 [tk-2104](#tk-2104) | All decoder tests pass | — | [ac-0201](../../../plan.dd.md#acceptance-criteria), [ac-0202](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2105 | BLE knob adapter: scan for ANTICATER name, bond, subscribe to HID reports, enqueue timestamped raw payloads to a bounded FreeRTOS queue (drop-newest on overflow, counted); reconnect with backoff; serial `bonds clear` | — | — | [x] checked | — | on_report only copies+xQueueSend(…,0), overflow counted (status.dropped=0 over 42 events); just fw-build SUCCESS; bonded + reconnects:1 | [x] 3/3 [tk-2105](#tk-2105) | Adapter compiles; callback does no work beyond enqueue; overflow is counted, never blocks | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2106 | Screen v1 + serial log: board name at boot, knob link state, last action + counter; one JSON-ish action line per event on serial | — | — | [x] checked | — | Boot line board=StickC+; Vaughan: "i can see it's working on the device now"; serial action line {seq,action,raw,usage,t_ms} emitted in main.cpp handle_event | [x] 2/2 [tk-2106](#tk-2106) | Renders on the detected M5 model | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2107 | Hardware smoke (Vaughan's go-ahead: unpairs knob from Mac): flash, bond, every gesture shows on screen + serial; knob power-cycle reconnects | — | — | [ ] unchecked | — | — | [~] 1/2 [tk-2107](#tk-2107) | Recorded in execution log with serial excerpts | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2107 | Hardware smoke (Vaughan's go-ahead: unpairs knob from Mac): flash, bond, every gesture shows on screen + serial; knob power-cycle reconnects | — | — | [x] checked | — | All 5 gestures seen on screen+serial (42 events, 0 dropped); ESP32 reset → bonded reconnect in 2 s (17:10:55); knob out-of-range drop 17:12:27 (reason 520) → after reconnect fix, auto-reconnect 17:18:04 once the knob released the Mac | [x] 2/2 [tk-2107](#tk-2107) | Recorded in execution log with serial excerpts | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
 
 <a id="done-when"></a>
 
@@ -96,4 +96,4 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
 | dw-1070 | Each of up/down/mute/brightness± seen on screen | [x] checked | not-applicable |
-| dw-1071 | Reconnect after knob power-cycle observed | [ ] unchecked | not-applicable |
+| dw-1071 | Reconnect after knob power-cycle observed | [x] checked | not-applicable |

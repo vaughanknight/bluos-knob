@@ -46,7 +46,9 @@ void handle_event(const KnobEvent& ev) {
 }
 
 void handle_command(const String& cmd) {
-    if (cmd == "bonds clear") {
+    if (cmd == "scan") {
+        g_knob.diag_scan(15000);
+    } else if (cmd == "bonds clear") {
         g_knob.clear_bonds();
     } else if (cmd == "status") {
         Serial.printf("{\"board\":\"%s\",\"knob\":\"%s\",\"peer\":\"%s\",\"events\":%lu,\"dropped\":%lu,"
@@ -58,7 +60,7 @@ void handle_command(const String& cmd) {
                       static_cast<unsigned long>(ESP.getFreeHeap()),
                       static_cast<unsigned long>(ESP.getMinFreeHeap()));
     } else if (cmd.length() > 0) {
-        Serial.printf("{\"error\":\"unknown command\",\"commands\":[\"status\",\"bonds clear\"]}\n");
+        Serial.printf("{\"error\":\"unknown command\",\"commands\":[\"status\",\"scan\",\"bonds clear\"]}\n");
     }
 }
 
