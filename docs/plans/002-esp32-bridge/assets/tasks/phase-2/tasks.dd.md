@@ -35,11 +35,11 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 | id | title | domain | phase | state | note | receipt | done | success | notes | satisfies | satisfies_toward |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tk-2201 | RED→GREEN: knob_core config validation (SSID/password non-empty, host set, port 1–65535, max_db ≤ −24, source_safe_db ≤ −24, step 0&lt;step≤3) | — | — | [ ] unchecked | — | — | [ ] 0/1 [tk-2201](#tk-2201) | Native tests with Test Doc blocks pass; unsafe values rejected | — | [ac-0204](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2202 | NVS config store + serial console (`set`, `show` with masked password, `reboot`); console never echoes secrets | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2202](#tk-2202) | Console round-trips settings across reboot | — | [ac-0204](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2201 | RED→GREEN: knob_core config validation (SSID/password non-empty, host set, port 1–65535, max_db ≤ −24, source_safe_db ≤ −24, step 0&lt;step≤3) | — | — | [x] checked | — | test_config 5/5 (RED 4 failed on stub first): SSID/host/port, max_db/source_safe_db &lt;= -24, 0&lt;step&lt;=3, set-one-key atomicity, only wifi_pass secret | [x] 1/1 [tk-2201](#tk-2201) | Native tests with Test Doc blocks pass; unsafe values rejected | — | [ac-0204](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2202 | NVS config store + serial console (`set`, `show` with masked password, `reboot`); console never echoes secrets | — | — | [ ] unchecked | — | show prints wifi_pass as **** (empty when unset); set refuses unsafe/unknown keys without writing; NVS store in config_store.cpp | [~] 1/2 [tk-2202](#tk-2202) | Console round-trips settings across reboot | — | [ac-0204](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2203 | scripts/fw_wifi.py + `just fw-wifi`: prompt SSID, getpass password, send to the device over serial, confirm connect result | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2203](#tk-2203) | Vaughan runs it and the device joins Wi-Fi; nothing secret in terminal history, logs or git | — | [ac-0204](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2204 | RED: capture real /Volume and /Status XML via the existing read-only harness into tests/fixtures/bluos/; native parser tests | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2204](#tk-2204) | Fixture-backed tests fail before parser exists | — | [ac-0205](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2205 | GREEN: BluOS XML field extraction + read-only HTTP adapter polling with backoff (no retry storms) | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2205](#tk-2205) | Parser tests green; adapter backs off when amp unreachable | — | [ac-0205](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2204 | RED: capture real /Volume and /Status XML via the existing read-only harness into tests/fixtures/bluos/; native parser tests | — | — | [x] checked | — | tests/fixtures/bluos/{volume,status}.xml captured read-only from 192.168.1.67; test_bluos_xml RED (3 failed) on stub | [x] 2/2 [tk-2204](#tk-2204) | Fixture-backed tests fail before parser exists | — | [ac-0205](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2205 | GREEN: BluOS XML field extraction + read-only HTTP adapter polling with backoff (no retry storms) | — | — | [x] checked | — | test_bluos_xml 4/4 + test_timing backoff; bluos_client.cpp polls /Volume+/Status in its own task with Backoff(2s..30s); fail-closed on unreadable db | [x] 2/2 [tk-2205](#tk-2205) | Parser tests green; adapter backs off when amp unreachable | — | [ac-0205](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2206 | Screen v2: idle dB + source + Wi-Fi/knob icons, plain-language faults, dim after inactivity / wake on event (dim timer in core, fake-clock tested) | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2206](#tk-2206) | All states render; dim/wake tested natively | — | [ac-0205](../../../plan.dd.md#acceptance-criteria), [ac-0209](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2207 | Hardware smoke: provision Wi-Fi, live volume/source shown; wrong host shows fault; dim + wake observed; 5 knob power-cycles and 3 Wi-Fi AP drops with gesture counts and min free heap logged | — | — | [ ] unchecked | — | — | [ ] 0/4 [tk-2207](#tk-2207) | Recorded in execution log; no resets, no progressive heap loss | — | [ac-0204](../../../plan.dd.md#acceptance-criteria), [ac-0205](../../../plan.dd.md#acceptance-criteria), [ac-0209](../../../plan.dd.md#acceptance-criteria) | — |
 
@@ -51,13 +51,13 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-2010 | just fw-test green with rejection cases | [ ] unchecked | not-applicable |
+| dw-2010 | just fw-test green with rejection cases | [x] checked | not-applicable |
 
 ### tk-2202
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-2020 | `show` prints password as **** | [ ] unchecked | not-applicable |
+| dw-2020 | `show` prints password as **** | [x] checked | not-applicable |
 | dw-2021 | Values persist across reboot | [ ] unchecked | not-applicable |
 
 ### tk-2203
@@ -71,15 +71,15 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-2040 | Fixtures committed (no secrets) | [ ] unchecked | not-applicable |
-| dw-2041 | Tests red | [ ] unchecked | not-applicable |
+| dw-2040 | Fixtures committed (no secrets) | [x] checked | not-applicable |
+| dw-2041 | Tests red | [x] checked | not-applicable |
 
 ### tk-2205
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-2050 | just fw-test green | [ ] unchecked | not-applicable |
-| dw-2051 | Backoff logic covered by a fake-clock test | [ ] unchecked | not-applicable |
+| dw-2050 | just fw-test green | [x] checked | not-applicable |
+| dw-2051 | Backoff logic covered by a fake-clock test | [x] checked | not-applicable |
 
 ### tk-2206
 

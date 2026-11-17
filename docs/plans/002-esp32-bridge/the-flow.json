@@ -3,7 +3,7 @@
   "kind": "flight-plan",
   "slug": "esp32-bridge",
   "nav": {
-    "now": "review-1",
+    "now": "phase-2",
     "next": null,
     "intent": "Run the bluos-knob daemon on the USB-connected M5 ESP32 (ESP32-PICO-D4), with a meaningful on-device screen while running",
     "bag": {
@@ -425,6 +425,77 @@
         "from": "phase-1",
         "to": "review-1"
       }
+    },
+    {
+      "id": "UPD-009",
+      "kind": "node-updated",
+      "origin": "engine",
+      "fired_at": "2026-11-17T06:32:11.792Z",
+      "details": {
+        "node": "review-1",
+        "fields": [
+          "comments"
+        ]
+      }
+    },
+    {
+      "id": "STA-011",
+      "kind": "status-changed",
+      "origin": "engine",
+      "fired_at": "2026-11-17T06:32:11.937Z",
+      "details": {
+        "node": "review-1",
+        "from": "assumed",
+        "to": "done"
+      }
+    },
+    {
+      "id": "CUR-004",
+      "kind": "cursor-moved",
+      "origin": "engine",
+      "fired_at": "2026-11-17T06:32:12.087Z",
+      "details": {
+        "from": "review-1",
+        "to": "phase-2"
+      }
+    },
+    {
+      "id": "STA-012",
+      "kind": "status-changed",
+      "origin": "engine",
+      "fired_at": "2026-11-17T06:32:12.230Z",
+      "details": {
+        "node": "phase-2",
+        "from": "known",
+        "to": "in_progress"
+      }
+    },
+    {
+      "id": "UPD-010",
+      "kind": "node-updated",
+      "origin": "engine",
+      "fired_at": "2026-11-17T06:32:27.307Z",
+      "details": {
+        "node": "boot-2",
+        "fields": [
+          "comments"
+        ]
+      }
+    },
+    {
+      "id": "STA-013",
+      "kind": "status-changed",
+      "origin": "engine",
+      "fired_at": "2026-11-17T06:32:27.450Z",
+      "details": {
+        "node": "boot-2",
+        "from": "known",
+        "to": "done",
+        "chore": {
+          "kind": "command",
+          "importance": "recommended"
+        }
+      }
     }
   ],
   "nodes": [
@@ -502,7 +573,7 @@
       "id": "review-1",
       "type": "review",
       "label": "Review: P1",
-      "status": "assumed",
+      "status": "done",
       "command": "/builder 7 review",
       "next": [
         "phase-2"
@@ -521,7 +592,16 @@
         "Close criteria through the CLI: node_modules/.bin/ddocs set \"<plan dir>/plan.dd.json#acceptance_criteria/ac-XXXX/state\" checked, and re-verify any moved basis with node_modules/.bin/ddocs link verify-basis <address> --sha <sha> --update <doc>.",
         "If the gate refuses and departing anyway is the HUMAN's decision, they pass --force — it records a defended override. An agent may not force a dd gate on its own judgment."
       ],
-      "modified_at": "2026-11-17T05:23:01.644Z"
+      "modified_at": "2026-11-17T06:32:11.937Z",
+      "comments": [
+        {
+          "at": "2026-11-17T06:32:11.792Z",
+          "text": "verdict:APPROVE after fixes (4 findings resolved, hardware re-verified); review: assets/tasks/phase-1/reviews/review.phase-1.md",
+          "source": "agent",
+          "kind": "validation"
+        }
+      ],
+      "ran_at": "2026-11-17T06:32:11.937Z"
     },
     {
       "id": "post-flight",
@@ -729,12 +809,12 @@
       "id": "phase-2",
       "type": "phase",
       "label": "P2: Wi-Fi + read-only status",
-      "status": "known",
+      "status": "in_progress",
       "next": [
         "review-2"
       ],
       "created_at": "2026-11-17T05:23:01.644Z",
-      "modified_at": "2026-11-17T05:23:01.644Z",
+      "modified_at": "2026-11-17T06:32:12.230Z",
       "zone": "flight",
       "command": "/builder 6 implement",
       "dd_link": {
@@ -763,18 +843,27 @@
       "id": "boot-2",
       "type": "harness-boot",
       "label": "Boot check",
-      "status": "known",
+      "status": "done",
       "next": [
         "phase-2"
       ],
       "created_at": "2026-11-17T05:23:01.644Z",
-      "modified_at": "2026-11-17T05:23:01.644Z",
+      "modified_at": "2026-11-17T06:32:27.449Z",
       "branch_of": "phase-2",
       "command": "run /eng-harness-flow --hook pre-flight --json",
       "chore": {
         "kind": "command",
         "importance": "recommended"
-      }
+      },
+      "comments": [
+        {
+          "at": "2026-11-17T06:32:27.307Z",
+          "text": "decision:noop hook:pre-flight phase:2 actual_stage:adopt missing_rung:S2-governance reason:repo unprovisioned → standard testing time:2026-11-17T06:33Z",
+          "source": "agent",
+          "kind": "validation"
+        }
+      ],
+      "ran_at": "2026-11-17T06:32:27.449Z"
     },
     {
       "id": "observe-2",

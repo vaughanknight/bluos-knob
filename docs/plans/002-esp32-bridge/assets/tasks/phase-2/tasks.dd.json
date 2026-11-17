@@ -22,12 +22,13 @@
         {
           "id": "tk-2201",
           "title": "RED→GREEN: knob_core config validation (SSID/password non-empty, host set, port 1–65535, max_db ≤ −24, source_safe_db ≤ −24, step 0<step≤3)",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2201",
           "success": "Native tests with Test Doc blocks pass; unsafe values rejected",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0204"
-          ]
+          ],
+          "receipt": "test_config 5/5 (RED 4 failed on stub first): SSID/host/port, max_db/source_safe_db <= -24, 0<step<=3, set-one-key atomicity, only wifi_pass secret"
         },
         {
           "id": "tk-2202",
@@ -37,7 +38,8 @@
           "success": "Console round-trips settings across reboot",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0204"
-          ]
+          ],
+          "receipt": "show prints wifi_pass as **** (empty when unset); set refuses unsafe/unknown keys without writing; NVS store in config_store.cpp"
         },
         {
           "id": "tk-2203",
@@ -52,22 +54,24 @@
         {
           "id": "tk-2204",
           "title": "RED: capture real /Volume and /Status XML via the existing read-only harness into tests/fixtures/bluos/; native parser tests",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2204",
           "success": "Fixture-backed tests fail before parser exists",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0205"
-          ]
+          ],
+          "receipt": "tests/fixtures/bluos/{volume,status}.xml captured read-only from 192.168.1.67; test_bluos_xml RED (3 failed) on stub"
         },
         {
           "id": "tk-2205",
           "title": "GREEN: BluOS XML field extraction + read-only HTTP adapter polling with backoff (no retry storms)",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2205",
           "success": "Parser tests green; adapter backs off when amp unreachable",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0205"
-          ]
+          ],
+          "receipt": "test_bluos_xml 4/4 + test_timing backoff; bluos_client.cpp polls /Volume+/Status in its own task with Backoff(2s..30s); fail-closed on unreadable db"
         },
         {
           "id": "tk-2206",
@@ -101,7 +105,7 @@
           {
             "id": "dw-2010",
             "assertion": "just fw-test green with rejection cases",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -109,7 +113,7 @@
           {
             "id": "dw-2020",
             "assertion": "`show` prints password as ****",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
@@ -137,13 +141,13 @@
           {
             "id": "dw-2040",
             "assertion": "Fixtures committed (no secrets)",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-2041",
             "assertion": "Tests red",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -151,13 +155,13 @@
           {
             "id": "dw-2050",
             "assertion": "just fw-test green",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-2051",
             "assertion": "Backoff logic covered by a fake-clock test",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],

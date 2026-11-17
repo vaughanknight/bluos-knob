@@ -122,3 +122,7 @@ fw-flash:
 # Open the serial monitor (Ctrl-C to exit).
 fw-monitor:
     cd firmware && {{pio}} device monitor -b 115200 {{ if fw_port != "" { "-p " + fw_port } else { "" } }}
+
+# Enter Wi-Fi + amp settings on the device (password prompt is hidden). Close any serial monitor first.
+fw-wifi:
+    "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_wifi.py {{ if fw_port != "" { "--port " + fw_port } else { "" } }}
