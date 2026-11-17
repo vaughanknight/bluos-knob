@@ -22,12 +22,14 @@
         {
           "id": "tk-2101",
           "title": "Spike: throwaway NimBLE-Arduino sketch in /tmp/bluos-ble-spike bonds to ANTICATER_MINI and prints raw Report notifications, while Wi-Fi is connected with periodic HTTP GETs and M5Unified redraws the screen",
-          "state": "unchecked",
+          "state": "na",
           "done": "#done_when/tk-2101",
           "success": "Go/no-go verdict, payload form, bonding quirks and min free heap under BLE+Wi-Fi+display recorded in the execution log; spike code discarded",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0203"
-          ]
+          ],
+          "note": "Superseded: the real NimBLE adapter (tk-2105) bonded on first attempt, so no throwaway spike was needed. Coexistence proof moved to tk-2207.",
+          "receipt": "17:07:31 knob connected ANTICATER_MINI ee:aa:b8:d6:82:5e reports:6; payload form = report-id-less 2 bytes (e900/ea00/e200/6f00/7000)"
         },
         {
           "id": "tk-2102",
@@ -68,22 +70,24 @@
         {
           "id": "tk-2105",
           "title": "BLE knob adapter: scan for ANTICATER name, bond, subscribe to HID reports, enqueue timestamped raw payloads to a bounded FreeRTOS queue (drop-newest on overflow, counted); reconnect with backoff; serial `bonds clear`",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2105",
           "success": "Adapter compiles; callback does no work beyond enqueue; overflow is counted, never blocks",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0203"
-          ]
+          ],
+          "receipt": "on_report only copies+xQueueSend(…,0), overflow counted (status.dropped=0 over 42 events); just fw-build SUCCESS; bonded + reconnects:1"
         },
         {
           "id": "tk-2106",
           "title": "Screen v1 + serial log: board name at boot, knob link state, last action + counter; one JSON-ish action line per event on serial",
-          "state": "unchecked",
+          "state": "checked",
           "done": "#done_when/tk-2106",
           "success": "Renders on the detected M5 model",
           "satisfies": [
             "../../../plan.dd.json#acceptance_criteria/ac-0203"
-          ]
+          ],
+          "receipt": "Boot line board=StickC+; Vaughan: \"i can see it's working on the device now\"; serial action line {seq,action,raw,usage,t_ms} emitted in main.cpp handle_event"
         },
         {
           "id": "tk-2107",
@@ -104,19 +108,20 @@
           {
             "id": "dw-1010",
             "assertion": "Serial shows raw notification bytes for turn up/down and press",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-1011",
             "assertion": "No missed gestures across 50 turns with Wi-Fi + display active; min free heap logged",
-            "state": "unchecked",
-            "pressure": "not-applicable"
+            "state": "na",
+            "pressure": "not-applicable",
+            "note": "Moved: BLE+Wi-Fi+display coexistence is proven in tk-2207 (Wi-Fi does not exist until Phase 2)."
           },
           {
             "id": "dw-1012",
             "assertion": "Verdict + constraints written to execution log",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -166,19 +171,19 @@
           {
             "id": "dw-1050",
             "assertion": "Code review: callback only enqueues",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-1051",
             "assertion": "Overflow counter exposed on serial",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-1052",
             "assertion": "just fw-build green",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -186,13 +191,13 @@
           {
             "id": "dw-1060",
             "assertion": "Boot screen shows detected board name",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {
             "id": "dw-1061",
             "assertion": "Action line format documented in code",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           }
         ],
@@ -200,7 +205,7 @@
           {
             "id": "dw-1070",
             "assertion": "Each of up/down/mute/brightness± seen on screen",
-            "state": "unchecked",
+            "state": "checked",
             "pressure": "not-applicable"
           },
           {

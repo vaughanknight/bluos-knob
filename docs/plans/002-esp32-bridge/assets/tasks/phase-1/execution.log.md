@@ -30,3 +30,15 @@
 ## tk-2102 — scaffold — done
 - First `just fw-build` downloaded espressif32@8.0.0 + xtensa toolchain (≈7.5 min, one-off); rebuild → SUCCESS, RAM 12.9% (42 KB static), Flash 61.0% (800 KB of 1.31 MB) with NimBLE-Arduino + M5Unified.
 - `git status` shows no `.pio/` (firmware/.gitignore).
+
+## Flash + first boot (tk-2106 partial)
+- `FW_PORT=/dev/cu.usbserial-89521F7539 just fw-flash` → SUCCESS.
+- Serial: `{"boot":"bluos-knob","board":"StickC+","free_heap":207512}`; `status` → knob `scanning`, free_heap 186924, min_free_heap 186880. **Board resolved: M5StickC Plus (135×240)** (open question 1).
+
+## Knob bonded to the ESP32 (tk-2101 superseded, tk-2105, tk-2106, tk-2107 part 1)
+- Vaughan forgot ANTICATER_MINI on the Mac (06:08Z): "Done, forgot it, and i can see it's working on the device now!"
+- Serial `17:07:31 {"knob":"connected","name":"ANTICATER_MINI","addr":"ee:aa:b8:d6:82:5e","reports":6}`: bond + 6 Report notifications on the first attempt.
+- 42 gestures logged, every action seen: `volume_up e900`, `volume_down ea00`, `mute_toggle e200`, `brightness_up 6f00`, `brightness_down 7000`. dropped 0; free heap 184164, min 183956.
+- **Discovery**: BLE payloads are 2 bytes with no report id (dossier F-02 prediction confirmed); covered by `given_ble_payload_without_report_id…`.
+- **Noteworthy**: tk-2101 throwaway spike marked `na`; the real adapter proved feasibility directly. Its coexistence assertion is moved to tk-2207.
+- **Discovery**: one knob detent often yields 2–3 events within ~100 ms (seq 35–37). Phase 3 policy must treat each as one step (Mac daemon does the same), so no change now; note for screen/feel.

@@ -35,13 +35,13 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 | id | title | domain | phase | state | note | receipt | done | success | notes | satisfies | satisfies_toward |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tk-2101 | Spike: throwaway NimBLE-Arduino sketch in /tmp/bluos-ble-spike bonds to ANTICATER_MINI and prints raw Report notifications, while Wi-Fi is connected with periodic HTTP GETs and M5Unified redraws the screen | — | — | [ ] unchecked | — | — | [ ] 0/3 [tk-2101](#tk-2101) | Go/no-go verdict, payload form, bonding quirks and min free heap under BLE+Wi-Fi+display recorded in the execution log; spike code discarded | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2101 | Spike: throwaway NimBLE-Arduino sketch in /tmp/bluos-ble-spike bonds to ANTICATER_MINI and prints raw Report notifications, while Wi-Fi is connected with periodic HTTP GETs and M5Unified redraws the screen | — | — | [x] na | Superseded: the real NimBLE adapter (tk-2105) bonded on first attempt, so no throwaway spike was needed. Coexistence proof moved to tk-2207. | 17:07:31 knob connected ANTICATER_MINI ee:aa:b8:d6:82:5e reports:6; payload form = report-id-less 2 bytes (e900/ea00/e200/6f00/7000) | [x] 3/3 [tk-2101](#tk-2101) | Go/no-go verdict, payload form, bonding quirks and min free heap under BLE+Wi-Fi+display recorded in the execution log; spike code discarded | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2102 | Scaffold firmware/ PlatformIO project (espressif32 Arduino + M5Unified + NimBLE-Arduino; envs m5stick and native) and justfile fw-build/fw-test/fw-flash/fw-monitor via uvx | — | — | [x] checked | Unblocked via brew install platformio (Vaughan approved). | just fw-build SUCCESS (RAM 12.9%, Flash 61.0%); just fw-test 5/5; firmware/.gitignore ignores .pio | [x] 3/3 [tk-2102](#tk-2102) | `just fw-build` succeeds; `just fw-test` runs (empty) native suite; .pio ignored | — | [ac-0201](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2103 | RED: native tests for knob_core decoder with Test Doc blocks: real capture vectors (03e900 … 030000), report-id-less forms, unknown usage | — | — | [x] checked | — | just fw-test (stub decoder): 4 failed / 1 passed on assertions (RED) | [x] 1/1 [tk-2103](#tk-2103) | Tests compile and fail for the missing decoder | — | [ac-0201](../../../plan.dd.md#acceptance-criteria), [ac-0202](../../../plan.dd.md#acceptance-criteria) | — |
 | tk-2104 | GREEN: implement knob_core decoder (16-bit LE usage scan + release rule, same table as normalizer.py) | — | — | [x] checked | — | just fw-test: 5/5 passed; table = normalizer.py CONSUMER_USAGE_TO_ACTION (0xE9,0xEA,0xE2,0x6F,0x70) + same release rule | [x] 2/2 [tk-2104](#tk-2104) | All decoder tests pass | — | [ac-0201](../../../plan.dd.md#acceptance-criteria), [ac-0202](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2105 | BLE knob adapter: scan for ANTICATER name, bond, subscribe to HID reports, enqueue timestamped raw payloads to a bounded FreeRTOS queue (drop-newest on overflow, counted); reconnect with backoff; serial `bonds clear` | — | — | [ ] unchecked | — | — | [ ] 0/3 [tk-2105](#tk-2105) | Adapter compiles; callback does no work beyond enqueue; overflow is counted, never blocks | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2106 | Screen v1 + serial log: board name at boot, knob link state, last action + counter; one JSON-ish action line per event on serial | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2106](#tk-2106) | Renders on the detected M5 model | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
-| tk-2107 | Hardware smoke (Vaughan's go-ahead: unpairs knob from Mac): flash, bond, every gesture shows on screen + serial; knob power-cycle reconnects | — | — | [ ] unchecked | — | — | [ ] 0/2 [tk-2107](#tk-2107) | Recorded in execution log with serial excerpts | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2105 | BLE knob adapter: scan for ANTICATER name, bond, subscribe to HID reports, enqueue timestamped raw payloads to a bounded FreeRTOS queue (drop-newest on overflow, counted); reconnect with backoff; serial `bonds clear` | — | — | [x] checked | — | on_report only copies+xQueueSend(…,0), overflow counted (status.dropped=0 over 42 events); just fw-build SUCCESS; bonded + reconnects:1 | [x] 3/3 [tk-2105](#tk-2105) | Adapter compiles; callback does no work beyond enqueue; overflow is counted, never blocks | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2106 | Screen v1 + serial log: board name at boot, knob link state, last action + counter; one JSON-ish action line per event on serial | — | — | [x] checked | — | Boot line board=StickC+; Vaughan: "i can see it's working on the device now"; serial action line {seq,action,raw,usage,t_ms} emitted in main.cpp handle_event | [x] 2/2 [tk-2106](#tk-2106) | Renders on the detected M5 model | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
+| tk-2107 | Hardware smoke (Vaughan's go-ahead: unpairs knob from Mac): flash, bond, every gesture shows on screen + serial; knob power-cycle reconnects | — | — | [ ] unchecked | — | — | [~] 1/2 [tk-2107](#tk-2107) | Recorded in execution log with serial excerpts | — | [ac-0203](../../../plan.dd.md#acceptance-criteria) | — |
 
 <a id="done-when"></a>
 
@@ -49,11 +49,11 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 ### tk-2101
 
-| id | assertion | state | pressure |
-| --- | --- | --- | --- |
-| dw-1010 | Serial shows raw notification bytes for turn up/down and press | [ ] unchecked | not-applicable |
-| dw-1011 | No missed gestures across 50 turns with Wi-Fi + display active; min free heap logged | [ ] unchecked | not-applicable |
-| dw-1012 | Verdict + constraints written to execution log | [ ] unchecked | not-applicable |
+| id | assertion | state | pressure | note |
+| --- | --- | --- | --- | --- |
+| dw-1010 | Serial shows raw notification bytes for turn up/down and press | [x] checked | not-applicable | — |
+| dw-1011 | No missed gestures across 50 turns with Wi-Fi + display active; min free heap logged | [x] na | not-applicable | Moved: BLE+Wi-Fi+display coexistence is proven in tk-2207 (Wi-Fi does not exist until Phase 2). |
+| dw-1012 | Verdict + constraints written to execution log | [x] checked | not-applicable | — |
 
 ### tk-2102
 
@@ -80,20 +80,20 @@ Work top to bottom. Hardware smoke steps that take the knob from the Mac or touc
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-1050 | Code review: callback only enqueues | [ ] unchecked | not-applicable |
-| dw-1051 | Overflow counter exposed on serial | [ ] unchecked | not-applicable |
-| dw-1052 | just fw-build green | [ ] unchecked | not-applicable |
+| dw-1050 | Code review: callback only enqueues | [x] checked | not-applicable |
+| dw-1051 | Overflow counter exposed on serial | [x] checked | not-applicable |
+| dw-1052 | just fw-build green | [x] checked | not-applicable |
 
 ### tk-2106
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-1060 | Boot screen shows detected board name | [ ] unchecked | not-applicable |
-| dw-1061 | Action line format documented in code | [ ] unchecked | not-applicable |
+| dw-1060 | Boot screen shows detected board name | [x] checked | not-applicable |
+| dw-1061 | Action line format documented in code | [x] checked | not-applicable |
 
 ### tk-2107
 
 | id | assertion | state | pressure |
 | --- | --- | --- | --- |
-| dw-1070 | Each of up/down/mute/brightness± seen on screen | [ ] unchecked | not-applicable |
+| dw-1070 | Each of up/down/mute/brightness± seen on screen | [x] checked | not-applicable |
 | dw-1071 | Reconnect after knob power-cycle observed | [ ] unchecked | not-applicable |
