@@ -1,0 +1,84 @@
+{
+  "dd": {
+    "schema": "builder/plan"
+  },
+  "sections": [
+    {
+      "name": "meta",
+      "value": {
+        "title": "Guard script + launchd job",
+        "slug": "phase-1",
+        "status": "draft",
+        "summary": ""
+      }
+    },
+    {
+      "name": "summary",
+      "value": ""
+    },
+    {
+      "name": "tasks",
+      "value": [
+        {
+          "id": "tk-4101",
+          "title": "RED→GREEN: guard script with fake-blueutil tests (unpair knob only, silent when absent, name-less match, error reporting)",
+          "state": "checked",
+          "done": "#done_when/tk-4101",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0401",
+            "../../../plan.dd.json#acceptance_criteria/ac-0402"
+          ],
+          "receipt": "RED 3 failed (no script) → GREEN 4/4; full pytest 57 passed; ruff clean"
+        },
+        {
+          "id": "tk-4102",
+          "title": "launchd plist + just mac-guard-on/off/status + runbook section; turn it on",
+          "state": "checked",
+          "done": "#done_when/tk-4102",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0403"
+          ],
+          "receipt": "plutil OK; launchd runs=2 exit 0; docs/how/esp32-bridge.md updated"
+        },
+        {
+          "id": "tk-4103",
+          "title": "Real-world confirmation from Vaughan",
+          "state": "unchecked",
+          "done": "#done_when/tk-4103",
+          "satisfies": [
+            "../../../plan.dd.json#acceptance_criteria/ac-0404"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "done_when",
+      "value": {
+        "tk-4101": [
+          {
+            "id": "dw-1010",
+            "assertion": "pytest test_mac_knob_guard green",
+            "state": "checked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-4102": [
+          {
+            "id": "dw-1020",
+            "assertion": "launchd job loaded and exiting 0",
+            "state": "checked",
+            "pressure": "not-applicable"
+          }
+        ],
+        "tk-4103": [
+          {
+            "id": "dw-1030",
+            "assertion": "Vaughan confirms the knob stays with the ESP32",
+            "state": "unchecked",
+            "pressure": "not-applicable"
+          }
+        ]
+      }
+    }
+  ]
+}

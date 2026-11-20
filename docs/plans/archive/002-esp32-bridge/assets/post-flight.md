@@ -15,7 +15,7 @@
 _Carried into the archive on Vaughan's explicit go-ahead._
 | Kind | Item | Where | Note |
 |------|------|-------|------|
-| Deferred | Optical/Spotify buttons not confirmed live on the amp | phase-3 log | Covered by policy tests (lower-first, post-switch re-check) |
+| Resolved | Optical/Spotify buttons confirmed working by Vaughan (2026-11-20, "optical/spotify working") | phase-3 log | — |
 | Deferred | Python Mac daemon has the muted −100 dB basis and read→relative-write gaps | scripts/bluos_daemon.py, bluos_volume_step.py | Daemon is disabled (`launchctl disable`); fix before re-enabling |
-| Noteworthy | macOS re-grabs the knob despite Forget + Ignore | phase-1/3 logs, runbook | Workaround documented in docs/how/esp32-bridge.md |
+| Noteworthy | macOS re-grabs the knob despite Forget + Ignore | phase-1/3 logs, runbook | Addressed by plan 004 (Mac knob guard) |
 | Noteworthy | Owner decision: LIVE remembered across restarts | plan clarifications | Supersedes plan-review session-only live |

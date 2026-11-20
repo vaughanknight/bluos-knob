@@ -138,3 +138,27 @@ fw-live:
 # Stop controlling the amp (remembered across restarts).
 fw-dry-run:
     "$(dirname "$(readlink -f "$(command -v pio)")")/python" scripts/fw_console.py dry-run {{ if fw_port != "" { "--port " + fw_port } else { "" } }}
+
+# --- Mac knob guard (plan 004): keep the knob with the ESP32, not this Mac ---
+guard_label := "com.vaughanknight.bluos-knob-guard"
+guard_plist := "~/Library/LaunchAgents/com.vaughanknight.bluos-knob-guard.plist"
+
+# Start the guard (unpairs the knob from this Mac whenever the Mac re-pairs it; runs every 10 s, survives reboots).
+mac-guard-on:
+    mkdir -p ~/Library/Logs/bluos-knob
+    cp deploy/com.vaughanknight.bluos-knob-guard.plist {{guard_plist}}
+    launchctl bootout gui/$(id -u)/{{guard_label}} 2>/dev/null || true
+    launchctl enable gui/$(id -u)/{{guard_label}}
+    launchctl bootstrap gui/$(id -u) {{guard_plist}}
+    @echo "Mac knob guard is ON (log: ~/Library/Logs/bluos-knob/guard.log)"
+
+# Stop the guard and keep it off after reboots.
+mac-guard-off:
+    launchctl bootout gui/$(id -u)/{{guard_label}} 2>/dev/null || true
+    launchctl disable gui/$(id -u)/{{guard_label}}
+    @echo "Mac knob guard is OFF"
+
+# Is the guard running, and what has it done?
+mac-guard-status:
+    @launchctl print gui/$(id -u)/{{guard_label}} 2>/dev/null | grep -E "state =|runs =|last exit code" || echo "guard not loaded"
+    @tail -5 ~/Library/Logs/bluos-knob/guard.log 2>/dev/null || echo "(no unpairs logged yet)"

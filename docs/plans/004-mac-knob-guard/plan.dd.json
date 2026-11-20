@@ -1,0 +1,98 @@
+{
+  "dd": {
+    "schema": "builder/plan"
+  },
+  "sections": [
+    {
+      "name": "meta",
+      "value": {
+        "title": "Mac knob guard: keep the knob with the ESP32",
+        "slug": "mac-knob-guard",
+        "ordinal": 4,
+        "status": "in-progress",
+        "mode": "Simple",
+        "created": "2026-11-20",
+        "complexity": "CS-2",
+        "complexity_breakdown": "S=1, I=1 (macOS Bluetooth via blueutil), D=0, N=1, F=1, T=1 = 5 → CS-3 by points; scoped as small",
+        "confidence": "0.75"
+      }
+    },
+    {
+      "name": "summary",
+      "value": "macOS re-pairs the Anticater knob at times and steals it from the ESP32 bridge. A launchd job runs scripts/mac_knob_guard.sh every 10 s: if blueutil shows the knob (by address ee-aa-b8-d6-82-5e or an ANTICATER name) paired to the Mac, it disconnects and unpairs only that device and logs one JSON line; a failing blueutil query is logged as an error instead of silently doing nothing. just mac-guard-on/off/status."
+    },
+    {
+      "name": "goals",
+      "value": [
+        "The knob stays with the ESP32 without Vaughan disconnecting it on the Mac.",
+        "Never touch any other Bluetooth device.",
+        "Easy to turn off (rollback to the Mac daemon)."
+      ]
+    },
+    {
+      "name": "non_goals",
+      "value": []
+    },
+    {
+      "name": "acceptance_criteria",
+      "value": [
+        {
+          "id": "ac-0401",
+          "claim": "When the knob is paired to the Mac, the guard disconnects and unpairs exactly that device and logs it (fake-blueutil test).",
+          "state": "checked",
+          "receipt": "tests/integration/test_mac_knob_guard.py 4/4"
+        },
+        {
+          "id": "ac-0402",
+          "claim": "With no knob paired the guard is silent and changes nothing; a blueutil failure is logged as an error.",
+          "state": "checked",
+          "receipt": "test_mac_knob_guard: not-paired + error cases pass"
+        },
+        {
+          "id": "ac-0403",
+          "claim": "just mac-guard-on installs a launchd job (every 10 s, survives reboots) that runs cleanly; mac-guard-off stops and disables it.",
+          "state": "checked",
+          "receipt": "mac-guard-on → launchd runs=2, last exit 0, no error lines"
+        },
+        {
+          "id": "ac-0404",
+          "claim": "Observed in real use: the knob no longer stays on the Mac (a guard.log unpair line when it happens).",
+          "state": "unchecked"
+        }
+      ]
+    },
+    {
+      "name": "phases",
+      "value": [
+        {
+          "id": "ph-d627",
+          "title": "Guard script + launchd job",
+          "brief": "",
+          "state": "unchecked",
+          "tasks": "assets/tasks/phase-1/tasks.dd.json#tasks"
+        }
+      ]
+    },
+    {
+      "name": "clarifications",
+      "value": [
+        {
+          "session": "2026-11-20",
+          "question": "Fix for the Mac re-grabbing the knob?",
+          "answer": "Vaughan: \"Build the guard (install blueutil)\" (brew install blueutil approved)."
+        }
+      ]
+    },
+    {
+      "name": "risks",
+      "value": [
+        {
+          "risk": "blueutil --unpair is marked experimental",
+          "likelihood": "Medium",
+          "impact": "Low",
+          "mitigation": "Disconnect first; unpair failures are logged as unpair_failed; guard retries every 10 s."
+        }
+      ]
+    }
+  ]
+}

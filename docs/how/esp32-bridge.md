@@ -35,6 +35,16 @@ just fw-monitor   # serial console (Ctrl-C to exit)
 3. After that it reconnects on its own: after a restart, when the knob wakes, or
    when the knob comes back into range.
 
+**Keep the Mac from re-grabbing the knob.** macOS sometimes re-pairs the knob when
+it wakes. The Mac knob guard (needs `brew install blueutil`) checks every 10 s and
+unpairs the knob from the Mac if it appears; it touches nothing else:
+
+```bash
+just mac-guard-on       # start (survives reboots)
+just mac-guard-status   # running? recent unpairs
+just mac-guard-off      # stop
+```
+
 If the dot stays yellow, check `system_profiler SPBluetoothDataType | grep -A3
 ANTICATER`. If the Mac lists it as *Connected*, the Mac has it again. Forget it
 there again. On the device's serial console, `scan` lists nearby BLE advertisers and
@@ -127,7 +137,7 @@ The badge always shows which mode it's in.
 ## Roll back to the Mac daemon
 
 1. `just fw-dry-run` (or unplug the device).
-2. Re-pair the knob with the Mac (Bluetooth settings; un-ignore it if needed).
+2. `just mac-guard-off`, then re-pair the knob with the Mac (Bluetooth settings; un-ignore it if needed).
 3. Re-enable the daemon:
    ```bash
    launchctl enable gui/$(id -u)/com.vaughanknight.bluos-knob

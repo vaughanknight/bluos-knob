@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Keeps the knob with the ESP32 bridge: unpairs it from this Mac if the Mac re-pairs it. -->
+  <key>Label</key>
+  <string>com.vaughanknight.bluos-knob-guard</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>/Users/vaughanknight/GitHub/bluos-knob/scripts/mac_knob_guard.sh</string>
+  </array>
+
+  <key>StartInterval</key>
+  <integer>10</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/vaughanknight/Library/Logs/bluos-knob/guard.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/vaughanknight/Library/Logs/bluos-knob/guard.err.log</string>
+</dict>
+</plist>
