@@ -8,7 +8,7 @@
     "intent": "Run the bluos-knob daemon on the USB-connected M5 ESP32 (ESP32-PICO-D4), with a meaningful on-device screen while running",
     "bag": {
       "mode": "Full",
-      "status": "active"
+      "status": "archived"
     }
   },
   "created_at": "2026-11-17T05:11:36.791Z",
@@ -757,6 +757,17 @@
           "importance": "recommended"
         }
       }
+    },
+    {
+      "id": "STA-025",
+      "kind": "status-changed",
+      "origin": "engine",
+      "fired_at": "2026-11-20T02:43:03.415Z",
+      "details": {
+        "node": "post-flight",
+        "from": "assumed",
+        "to": "done"
+      }
     }
   ],
   "nodes": [
@@ -807,7 +818,7 @@
         "review-1"
       ],
       "dd_link": {
-        "address": "docs/plans/002-esp32-bridge/assets/tasks/phase-1/tasks.dd.json#tasks",
+        "address": "docs/plans/archive/002-esp32-bridge/assets/tasks/phase-1/tasks.dd.json#tasks",
         "basis_sha": "4c1516282ef2bc80c173d606b51092afa99afd2a8dbaf46ae7efa5bab99b9c53",
         "reading": {
           "status": "complete",
@@ -841,7 +852,7 @@
       ],
       "zone": "flight",
       "dd_link": {
-        "address": "docs/plans/002-esp32-bridge/plan.dd.json",
+        "address": "docs/plans/archive/002-esp32-bridge/plan.dd.json",
         "check": "plan-validate",
         "gate": false
       },
@@ -868,7 +879,7 @@
       "id": "post-flight",
       "type": "post-flight",
       "label": "Post-flight",
-      "status": "assumed",
+      "status": "done",
       "command": "/builder 7b post-flight",
       "next": [
         "ship"
@@ -878,7 +889,9 @@
         "Close out the flight BEFORE any ship: every phase and review is done; the terminal harness harvest fires at this edge, then the plan folder is archived — this stage runs whether or not the work ever ships.",
         "Run /builder 7b post-flight --plan \"<plan path>\" — it verifies completion, writes assets/post-flight.md (close-out note + open-items digest), then moves the WHOLE plan folder to docs/plans/archive/<ord>-<slug>/ (git mv, layout intact). Land every flight-plan receipt before the move — the flow file's path changes with the folder.",
         "Done when the close-out note exists and the plan folder lives under docs/plans/archive/ — ship (optional, later) resolves --plan from the archive path."
-      ]
+      ],
+      "modified_at": "2026-11-20T02:43:03.415Z",
+      "ran_at": "2026-11-20T02:43:03.415Z"
     },
     {
       "id": "ship",
@@ -1089,7 +1102,7 @@
       "zone": "flight",
       "command": "/builder 6 implement",
       "dd_link": {
-        "address": "docs/plans/002-esp32-bridge/assets/tasks/phase-2/tasks.dd.json#tasks",
+        "address": "docs/plans/archive/002-esp32-bridge/assets/tasks/phase-2/tasks.dd.json#tasks",
         "basis_sha": "797869eb106d48345ba76608da82787611b67b55f3f096a32e41889dbcd1d879",
         "reading": {
           "status": "complete",
@@ -1114,7 +1127,7 @@
       "zone": "flight",
       "command": "/builder 7 review",
       "dd_link": {
-        "address": "docs/plans/002-esp32-bridge/plan.dd.json",
+        "address": "docs/plans/archive/002-esp32-bridge/plan.dd.json",
         "check": "plan-validate",
         "gate": false
       },
@@ -1219,7 +1232,7 @@
       "zone": "flight",
       "command": "/builder 6 implement",
       "dd_link": {
-        "address": "docs/plans/002-esp32-bridge/assets/tasks/phase-3/tasks.dd.json#tasks",
+        "address": "docs/plans/archive/002-esp32-bridge/assets/tasks/phase-3/tasks.dd.json#tasks",
         "basis_sha": "285a05b5ecc738b8e1237db106a30b326c4cdadfe57b5aaa3c814aa720fb5b8a",
         "reading": {
           "status": "complete",
@@ -1244,7 +1257,7 @@
       "zone": "flight",
       "command": "/builder 7 review",
       "dd_link": {
-        "address": "docs/plans/002-esp32-bridge/plan.dd.json",
+        "address": "docs/plans/archive/002-esp32-bridge/plan.dd.json",
         "check": "plan-validate"
       },
       "comments": [
@@ -1336,5 +1349,5 @@
       "ran_at": "2026-11-17T08:52:02.372Z"
     }
   ],
-  "plan_dir": "docs/plans/002-esp32-bridge"
+  "plan_dir": "docs/plans/archive/002-esp32-bridge"
 }
